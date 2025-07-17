@@ -74,8 +74,6 @@ out/
 
 # Electron specific
 *.electron/
-electron-builder.yml
-app/dist/
 
 # Svelte specific
 .output/
