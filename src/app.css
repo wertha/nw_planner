@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the New World Planner */
+body {
+    @apply bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+}
+
+.faction-marauder {
+    @apply text-marauder border-marauder;
+}
+
+.faction-covenant {
+    @apply text-covenant border-covenant;
+}
+
+.faction-syndicate {
+    @apply text-syndicate border-syndicate;
+}
+
+.priority-low {
+    @apply text-green-600 dark:text-green-400;
+}
+
+.priority-medium {
+    @apply text-yellow-600 dark:text-yellow-400;
+}
+
+.priority-high {
+    @apply text-orange-600 dark:text-orange-400;
+}
+
+.priority-critical {
+    @apply text-red-600 dark:text-red-400;
+}
+
+.btn-primary {
+    @apply bg-nw-blue hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors;
+}
+
+.btn-secondary {
+    @apply bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors;
+}
+
+.btn-danger {
+    @apply bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-colors;
+}
+
+.card {
+    @apply bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6;
+}
+
+.form-input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-nw-blue dark:bg-gray-700 dark:text-gray-100;
+}
+
+.form-label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
+} 

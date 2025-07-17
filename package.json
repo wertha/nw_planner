@@ -1,0 +1,76 @@
+{
+  "name": "new-world-planner",
+  "version": "1.0.0",
+  "description": "A lightweight calendar and task management application for New World MMO players",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview",
+    "electron": "cross-env NODE_ENV=production electron .",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "build-electron": "vite build",
+    "dist": "npm run build-electron && electron-builder",
+    "dist-win": "npm run build-electron && electron-builder --win",
+    "dist-mac": "npm run build-electron && electron-builder --mac",
+    "dist-linux": "npm run build-electron && electron-builder --linux"
+  },
+  "keywords": [
+    "electron",
+    "svelte",
+    "new-world",
+    "planner",
+    "mmo"
+  ],
+  "author": "New World Planner",
+  "license": "MIT",
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@tailwindcss/forms": "^0.5.0",
+    "@tailwindcss/typography": "^0.5.0",
+    "autoprefixer": "^10.4.0",
+    "concurrently": "^8.2.0",
+    "cross-env": "^7.0.3",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "electron-rebuild": "^3.2.9",
+    "postcss": "^8.4.0",
+    "svelte": "^4.0.0",
+    "tailwindcss": "^3.4.0",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "@fullcalendar/core": "^6.1.0",
+    "@fullcalendar/daygrid": "^6.1.0",
+    "@fullcalendar/interaction": "^6.1.0",
+    "@fullcalendar/timegrid": "^6.1.0",
+    "better-sqlite3": "^9.0.0",
+    "date-fns": "^3.0.0",
+    "electron-store": "^8.1.0"
+  },
+  "build": {
+    "appId": "com.newworld.planner",
+    "productName": "New World Planner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*"
+    ],
+    "win": {
+      "target": "portable"
+    },
+    "mac": {
+      "target": "dir"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "portable": {
+      "artifactName": "NewWorldPlanner-${version}-portable.exe"
+    }
+  }
+}

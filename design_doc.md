@@ -1,0 +1,989 @@
+# New World Planner - Electron App Planning Document
+
+## 1. Application Overview
+
+### 1.1 Purpose
+A lightweight, portable calendar and task management application specifically designed for New World MMO players to track dailies, weeklies, and scheduled events across multiple characters on multiple servers and time zones. Designed for individual offline use with no external dependencies.
+
+### 1.2 Target Users
+- New World MMO players with multiple characters
+- Players participating in organized company activities
+- Players who want to optimize their daily/weekly progression
+- Users who prefer standalone, portable applications
+
+### 1.3 Key Requirements
+- Fully offline operation (no internet required after installation)
+- Portable executable (no installation required)
+- Local data storage only
+- Cross-platform compatibility
+- Minimal resource usage
+
+## 2. Core Features & Architecture
+
+### 2.1 Character Management System
+```
+Character Entity:
+- Character Name
+- Server Name
+- Server Time Zone
+- Faction (Factionless, Marauders, Covenant, Syndicate) - defaults to Factionless
+- Company (optional)
+- Active Status (Active, Inactive)
+- Creation Date
+- Last Updated
+- Custom Notes
+- Character Avatar/Icon (optional)
+```
+
+### 2.2 Task Management System
+
+#### 2.2.1 Daily Tasks
+```
+Daily Task Entity:
+- Task Name
+- Description
+- Priority Level (Low, Medium, High, Critical)
+- Rewards/Benefits
+- Character Assignment (specific characters or all)
+- Auto-reset at 5 AM server time
+- Completion Status per Character
+- Streak Counter
+```
+
+#### 2.2.2 Weekly Tasks
+```
+Weekly Task Entity:
+- Task Name
+- Description
+- Priority Level
+- Rewards/Benefits
+- Character Assignment
+- Auto-reset on Tuesday at 5 AM server time
+- Completion Status per Character
+- Week Number Tracking
+```
+
+### 2.3 Event Management System
+
+#### 2.3.1 Scheduled Game Events
+```
+Game Event Entity:
+- Event Type (War, Invasion, Race, etc.)
+- Server Name
+- Event Time (server time)
+- Participation Status (Signed Up, Confirmed, Absent, Tentative)
+- Character Participating
+- Event Details/Notes
+- Recurring Pattern (if applicable)
+- Notification Settings
+```
+
+#### 2.3.2 Guild/External Events
+```
+External Event Entity:
+- Event Name
+- Event Type (Raid, Meeting, VOD Review, Community Event, etc.)
+- Date/Time
+- Time Zone
+- Character(s) Participating
+- Location/Platform (Discord, In-game, etc.)
+- Event Details/Description
+- Recurring Pattern
+- Notification Settings
+- RSVP Status (per event instance)
+```
+
+### 2.4 Calendar System
+```
+Calendar Features:
+- Multi-view support (Day, Week, Month)
+- Server time zone display for each character
+- Ability to set event times by server time, but display local time
+- Color coding by character/event type
+- Daily/Weekly reset indicators
+- Event conflict detection
+- Drag-and-drop event scheduling
+- Quick task completion marking
+- Progress tracking visualization
+```
+
+## 3. Technical Architecture
+
+### 3.1 Technology Stack
+```
+Frontend:
+- Electron (main process)
+- Svelte (renderer process)
+- Tailwind CSS (styling)
+- @fullcalendar/svelte (calendar component)
+
+Backend/Data:
+- SQLite (local database with better-sqlite3)
+- Electron-store (app configuration)
+- Node.js APIs for data management
+- IPC (Inter-Process Communication) for secure renderer-main communication
+
+Time Zone & Date Handling:
+- date-fns (modern, tree-shakeable alternative to Moment.js)
+- Intl.DateTimeFormat (native browser timezone support)
+- Custom timezone service for New World server time calculations
+
+Build & Packaging:
+- Vite (build tool with ESM support)
+- Electron-builder (packaging for portable executables)
+- Cross-env (environment variable management)
+- Concurrently (development workflow)
+```
+
+### 3.2 Database Schema
+```sql
+-- Characters table
+CREATE TABLE characters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    server_name TEXT NOT NULL,
+    server_timezone TEXT NOT NULL,
+                faction TEXT CHECK(faction IN ('Factionless', 'Marauders', 'Covenant', 'Syndicate')) DEFAULT 'Factionless',
+    company TEXT,
+    active_status BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    avatar_path TEXT
+);
+
+-- Task definitions
+CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    type TEXT CHECK(type IN ('daily', 'weekly')) NOT NULL,
+    priority TEXT CHECK(priority IN ('Low', 'Medium', 'High', 'Critical')) DEFAULT 'Medium',
+    rewards TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Task assignments to characters
+CREATE TABLE task_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+    character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(task_id, character_id)
+);
+
+-- Task completion tracking
+CREATE TABLE task_completions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+    character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reset_period TEXT NOT NULL, -- '2024-01-15' for daily, '2024-W03' for weekly
+    streak_count INTEGER DEFAULT 1,
+    UNIQUE(task_id, character_id, reset_period)
+);
+
+-- Events table
+CREATE TABLE events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    event_type TEXT NOT NULL,
+    server_name TEXT,
+    event_time TIMESTAMP NOT NULL,
+    timezone TEXT NOT NULL,
+    character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+    participation_status TEXT CHECK(participation_status IN ('Signed Up', 'Confirmed', 'Absent', 'Tentative')) DEFAULT 'Signed Up',
+    location TEXT,
+    recurring_pattern TEXT,
+    notification_enabled BOOLEAN DEFAULT 1,
+    notification_minutes INTEGER DEFAULT 30,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Servers table (Added during implementation)
+CREATE TABLE servers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    region TEXT NOT NULL,
+    timezone TEXT NOT NULL,
+    active_status BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_characters_server ON characters(server_name);
+CREATE INDEX idx_task_completions_character ON task_completions(character_id);
+CREATE INDEX idx_task_completions_reset_period ON task_completions(reset_period);
+CREATE INDEX idx_events_character ON events(character_id);
+CREATE INDEX idx_events_time ON events(event_time);
+CREATE INDEX idx_servers_region ON servers(region);
+CREATE INDEX idx_servers_name ON servers(name);
+
+-- Triggers for timestamp updates
+CREATE TRIGGER update_character_timestamp 
+    BEFORE UPDATE ON characters 
+    FOR EACH ROW 
+    BEGIN
+        UPDATE characters SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+```
+
+### 3.3 Time Zone Management Architecture
+```javascript
+// Core timezone service for server time calculations
+class TimeZoneService {
+    static serverTimeZones = {
+        'Camelot': 'America/Los_Angeles',
+        'Valhalla': 'America/New_York',
+        'Hellheim': 'Europe/London',
+        // Add more servers as needed
+    };
+
+    static getServerTime(serverName, localTime = new Date()) {
+        const timezone = this.serverTimeZones[serverName];
+        if (!timezone) throw new Error(`Unknown server: ${serverName}`);
+        
+        return new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).format(localTime);
+    }
+
+    static getNextResetTime(serverName, resetType) {
+        const timezone = this.serverTimeZones[serverName];
+        const now = new Date();
+        
+        if (resetType === 'daily') {
+            // Next 5 AM server time
+            const nextReset = new Date(now);
+            nextReset.setHours(5, 0, 0, 0);
+            if (nextReset <= now) {
+                nextReset.setDate(nextReset.getDate() + 1);
+            }
+            return nextReset;
+        } else if (resetType === 'weekly') {
+            // Next Tuesday at 5 AM server time
+            const nextReset = new Date(now);
+            const daysUntilTuesday = (2 - now.getDay() + 7) % 7;
+            nextReset.setDate(now.getDate() + daysUntilTuesday);
+            nextReset.setHours(5, 0, 0, 0);
+            if (nextReset <= now) {
+                nextReset.setDate(nextReset.getDate() + 7);
+            }
+            return nextReset;
+        }
+    }
+}
+```
+
+## 4. User Interface Design
+
+### 4.1 Main Application Layout
+```
+Layout Structure:
+├── Header Bar
+│   ├── App Title/Logo
+│   ├── Character Selector (multi-select dropdown)
+│   ├── Server Time Display (for selected characters)
+│   └── Settings/Menu
+├── Sidebar Navigation
+│   ├── Dashboard
+│   ├── Calendar View
+│   ├── Characters
+│   ├── Tasks Management
+│   ├── Events
+│   └── Settings
+└── Main Content Area
+    └── Dynamic content based on navigation
+```
+
+### 4.2 Key Views
+
+#### 4.2.1 Dashboard
+- Today's tasks for selected character(s)
+- Upcoming events (next 24-48 hours)
+- Reset timers (daily at 5 AM, weekly on Tuesday - calculated based on each server's time NOT local time)
+- Quick completion checkboxes
+- Server time clocks for active characters
+- Character-specific task summaries
+
+#### 4.2.2 Calendar View
+- Full calendar with all events and tasks
+- Character filter toggles (multi-select)
+- Color-coded by character/event type
+- Daily reset markers (5 AM server time)
+- Weekly reset markers (Tuesday at 5 AM server time)
+- Quick event creation with server time input
+- Local time display with server time tooltips
+- Event conflict detection across characters
+
+#### 4.2.3 Character Management
+- Character list with server info and time zones
+- Add/edit/deactivate characters
+- Task assignment per character
+- Character-specific statistics
+- Avatar/icon management
+
+### 4.2.6 Server Management (NEW)
+- Complete server management interface
+- Server CRUD operations (Create, Read, Update, Delete)
+- Regional server organization (US East, US West, EU Central, AP Southeast, SA East)
+- Timezone management per server
+- Server active/inactive status control
+- Pre-populated default New World servers
+
+#### 4.2.4 Task Management
+- Task library organized by category
+- Custom task creation
+- Bulk task assignment to characters
+- Priority management system
+- Progress tracking and streak monitoring
+- Task completion history
+
+#### 4.2.5 Event Management
+- Event calendar with server time scheduling
+- RSVP management (Signed Up, Confirmed, Absent, Tentative)
+- Recurring event setup
+- Notification configuration
+- Platform/location specification (Discord, In-game)
+
+## 5. Advanced Features
+
+### 5.1 Time Zone Management
+- Automatic server time calculation for each character
+- Multiple server time zone display
+- Event creation in server time with local time display
+- Reset time notifications (5 AM daily, Tuesday at 5 AM weekly)
+- Daylight saving time handling via native Intl.DateTimeFormat
+- Time zone conversion tooltips
+
+### 5.2 Notification System
+- Desktop notifications for:
+  - Daily resets (5 AM server time)
+  - Weekly resets (Tuesday 5 AM server time)
+  - Upcoming events (customizable lead time)
+  - Task reminders
+  - Streak maintenance alerts
+- Customizable notification timing per character
+- Sound alerts (optional)
+- Notification scheduling based on server time zones
+
+### 5.3 Data Management
+- Simple JSON export/import functionality for character data
+- SQLite database backup and restore
+- Basic data validation and error recovery
+- Export task completion history as CSV
+
+### 5.4 Customization
+- Theme support (dark/light mode)
+- Custom task categories
+- Editable server names and time zones
+- Character color coding
+- Basic layout preferences
+
+## 6. Technical Considerations
+
+### 6.1 Performance (Simplified for Small-Scale Use)
+- Efficient SQLite queries with proper indexing
+- Lightweight component rendering
+- Memory usage target: < 100MB for typical use
+- Fast startup time: < 2 seconds
+- Responsive UI: < 300ms for common operations
+
+### 6.2 Data Integrity
+- Basic data validation for character assignments
+- Automatic database backup on app close
+- Simple error handling with user-friendly messages
+- Input sanitization for all user inputs
+
+### 6.3 Security (Minimal for Offline Use)
+- Input validation and sanitization
+- Secure file handling for avatars
+- Optional local database encryption
+
+### 6.4 Portability & Cross-Platform
+- Portable executable (no installation required)
+- Windows, macOS, and Linux support
+- Consistent UI across platforms
+- Self-contained with all dependencies bundled
+
+### 6.5 Error Handling
+- Graceful degradation for timezone calculation failures
+- User-friendly error messages
+- Simple retry mechanisms for database operations
+- Toast notifications for user feedback
+- Automatic error recovery where possible
+
+### 6.6 Svelte-Specific Implementation
+- Reactive stores for character selection and time zones
+- Simple state management for task completion
+- Custom components for calendar integration
+- Efficient update patterns for real-time data
+
+## 7. Build and Distribution
+
+### 7.1 Build Configuration
+```javascript
+// electron-builder configuration for portable builds
+{
+  "appId": "com.newworld.planner",
+  "productName": "New World Planner",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "dist-electron/**/*",
+    "dist/**/*"
+  ],
+  "win": {
+    "target": "portable"
+  },
+  "mac": {
+    "target": "dir"
+  },
+  "linux": {
+    "target": "AppImage"
+  },
+  "portable": {
+    "artifactName": "NewWorldPlanner-${version}-portable.exe"
+  }
+}
+```
+
+### 7.2 Development Workflow
+- Vite for fast development builds
+- Hot module replacement for rapid iteration
+- Simple npm scripts for build/package operations
+- No complex CI/CD required for personal use
+
+## 8. Deployment Strategy
+
+### 8.1 Distribution
+- Single portable executable per platform
+- No installation required
+- Self-contained with all dependencies
+- Database created automatically on first run
+- Configuration stored in user data directory
+
+### 8.2 Updates (Optional)
+- Manual update process (download new version)
+- Data migration handled automatically
+- Backup prompts before major updates
+- Optional auto-updater for convenience
+
+---
+
+## 9. Implementation Updates & Changes
+
+### 9.1 Server Management System (NEW)
+**Added comprehensive server management functionality:**
+
+```sql
+-- Servers table (NEW)
+CREATE TABLE servers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    region TEXT NOT NULL,
+    timezone TEXT NOT NULL,
+    active_status BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for server management
+CREATE INDEX idx_servers_region ON servers(region);
+CREATE INDEX idx_servers_name ON servers(name);
+```
+
+**Server Entity Structure:**
+```
+Server Entity:
+- Server Name (unique)
+- Region (US East, US West, EU Central, AP Southeast, SA East)
+- Timezone (region-specific timezones)
+- Active Status (enable/disable for character selection)
+- Creation Date
+- Last Updated
+```
+
+**Pre-populated Default Servers:**
+- **US East**: Hudsonland, Pangea, Valhalla
+- **US West**: Aquarius, El Dorado
+- **EU Central**: Aries, Nysa
+- **AP Southeast**: Cerberus, Delos
+- **SA East**: Alkaid, Devaloka
+
+### 9.2 UI/UX Polish & Accessibility Improvements (NEW)
+**Comprehensive interface refinements and accessibility enhancements:**
+
+**Sidebar Optimization:**
+- Fixed icon scaling issues with collapsed sidebar
+- Adjusted collapsed width from 64px to 72px (`w-18`) for optimal icon proportions
+- Conditional padding: `p-2` when collapsed, `p-3` when expanded
+- Updated icon designs for better clarity:
+  - Characters: Changed to single person/account icon
+  - Events: Changed to clock icon for better timing representation
+
+**Modal Accessibility Compliance:**
+```html
+<!-- Enhanced modal structure with proper ARIA roles -->
+<div role="dialog" aria-modal="true" on:click={close} on:keydown={handleKeydown}>
+  <div role="document" on:click|stopPropagation on:keydown|stopPropagation>
+    <!-- Modal content -->
+  </div>
+</div>
+```
+
+**Settings Form Accessibility:**
+- Converted standalone `<label>` elements to `<span>` elements
+- Proper form control associations for screen readers
+- Resolved 6 "form label must be associated with a control" warnings
+
+**Database Status Enhancement:**
+```javascript
+// Added explicit database initialization logging
+console.log('Database initialization status:', 
+  dbReady ? 'SUCCESS ✅' : 'FAILED ❌');
+```
+
+**Code Quality Improvements:**
+- Removed unused CSS selectors (`.faction-*` classes)
+- Resolved 10+ build warnings and accessibility issues
+- Clean build output with minimal warnings
+- Enhanced keyboard navigation support
+- **SA East**: Alkaid, Devaloka
+
+### 9.2 Technical Fixes & Improvements
+**Database Layer Improvements:**
+- Fixed prepared statement async/await issues
+- Fixed SQLite boolean binding (converted to integers)
+- Added proper error handling for database operations
+- Improved database initialization and service lifecycle
+
+**Electron Integration Fixes:**
+- Fixed Electron mode detection in API service
+- Resolved preload script ES6 import issues (converted to CommonJS)
+- Fixed NODE_ENV handling for development vs production modes
+- Improved IPC communication reliability
+
+**UI/UX Improvements:**
+- Fixed modal text input interactions
+- Added proper modal backdrop handling
+- Improved error messaging and user feedback
+- Enhanced form validation and user experience
+
+### 9.3 Component Architecture Updates
+**New Components Added:**
+- `ServerModal.svelte` - Complete server management interface
+- Enhanced `Settings.svelte` - Added server management section
+- Improved modal handling across all components
+
+**Service Layer Enhancements:**
+- `serverService.js` - Complete server CRUD operations
+- Enhanced `api.js` - Improved Electron/web mode detection
+- Fixed database services - Proper async/await handling
+
+---
+
+## 10. Comprehensive Testing Protocol
+
+### 10.1 Pre-Test Setup
+**Environment Preparation:**
+1. Build application: `npm run build-electron`
+2. Run application: `npm run electron`
+3. Verify application loads without errors
+4. Open Developer Tools (F12) to monitor console for errors
+5. Confirm database initialization message appears
+
+### 10.2 Navigation & Layout Testing
+
+**Test 1: Application Launch & Initial State**
+- [x] Application window opens at correct size (1200x800)
+- [x] Header displays "New World Planner" title
+- [x] Sidebar navigation is visible with all menu items
+- [x] Dashboard is selected by default
+- [x] No console errors on startup
+- [x] Database initialization completes successfully (look for "Database initialization status: SUCCESS ✅" in console)
+
+**Test 2: Navigation Testing**
+- [x] Click "Dashboard" - loads dashboard view
+- [x] Click "Calendar" - loads calendar view
+- [x] Click "Characters" - loads character management view
+- [x] Click "Tasks" - loads task management view
+- [x] Click "Events" - loads event management view
+- [x] Click "Settings" - loads settings view
+- [x] Navigation highlights active section
+- [x] Each view loads without errors
+
+### 10.3 Server Management Testing (NEW)
+
+**Test 3: Server Management - View & Navigation**
+- [ ] Navigate to Settings page
+- [ ] Locate "Server Management" section
+- [ ] Verify default servers are populated (25 servers)
+- [ ] Verify servers are grouped by region
+- [ ] Check server count displays correctly
+- [ ] Verify "Add Server" button is present
+
+**Test 4: Server Creation**
+- [ ] Click "Add Server" button
+- [ ] Verify ServerModal opens with empty form
+- [ ] Test server name input field (type text)
+- [ ] Test region dropdown (select each region)
+- [ ] Verify timezone auto-populates based on region
+- [ ] Test timezone dropdown (select different timezones)
+- [ ] Test active status checkbox
+- [ ] Click "Create Server" with valid data
+- [ ] Verify server appears in server list
+- [ ] Verify success feedback/notification
+
+**Test 5: Server Editing**
+- [ ] Click edit button (✏️) on an existing server
+- [ ] Verify ServerModal opens with populated data
+- [ ] Modify server name
+- [ ] Change region (verify timezone updates)
+- [ ] Change timezone manually
+- [ ] Toggle active status
+- [ ] Click "Update Server"
+- [ ] Verify changes are saved and reflected in list
+- [ ] Verify success feedback
+
+**Test 6: Server Deletion**
+- [ ] Click delete button (🗑️) on a server
+- [ ] Verify delete confirmation dialog appears
+- [ ] Click "Cancel" - verify server is NOT deleted
+- [ ] Click delete button again
+- [ ] Click "Confirm Delete" - verify server is removed
+- [ ] Verify success feedback
+- [ ] Verify server count updates
+
+**Test 7: Server Status Management**
+- [ ] Click active/inactive toggle on multiple servers
+- [ ] Verify status changes immediately
+- [ ] Verify inactive servers are visually distinguished
+- [ ] Test bulk status changes on multiple servers
+
+### 10.4 Character Management Testing
+
+**Test 8: Character Creation**
+- [ ] Navigate to Characters page
+- [ ] Click "Add Character" button
+- [ ] Test character name input field
+- [ ] Test server selection dropdown (shows active servers only)
+- [ ] Test faction selection (Factionless, Marauders, Covenant, Syndicate)
+- [ ] Test company name input (optional)
+- [ ] Test notes input (optional)
+- [ ] Test active status checkbox
+- [ ] Click "Create Character" with valid data
+- [ ] Verify character appears in character list
+- [ ] Verify character shows server timezone correctly
+
+**Test 9: Character Editing**
+- [ ] Click edit button on existing character
+- [ ] Modify character name
+- [ ] Change server selection
+- [ ] Change faction
+- [ ] Update company name
+- [ ] Update notes
+- [ ] Toggle active status
+- [ ] Click "Update Character"
+- [ ] Verify changes are saved and displayed
+
+**Test 10: Character Deletion**
+- [ ] Click delete button on character
+- [ ] Verify confirmation dialog
+- [ ] Test "Cancel" - character not deleted
+- [ ] Click delete again and confirm
+- [ ] Verify character is removed
+- [ ] Verify character no longer appears in header dropdown
+
+**Test 11: Character Status Management**
+- [ ] Toggle active/inactive status on multiple characters
+- [ ] Verify status changes immediately
+- [ ] Verify inactive characters are visually marked
+- [ ] Check header dropdown only shows active characters
+
+### 10.5 Task Management Testing
+
+**Test 12: Task View & Navigation**
+- [ ] Navigate to Tasks page
+- [ ] Verify default tasks are loaded
+- [ ] Check task categories (daily/weekly)
+- [ ] Verify task priority indicators
+- [ ] Check task completion checkboxes
+
+**Test 13: Task Completion**
+- [ ] Select a character from header dropdown
+- [ ] Click completion checkbox on daily task
+- [ ] Verify task is marked as completed
+- [ ] Verify completion persists on page refresh
+- [ ] Test completion on weekly task
+- [ ] Test unchecking completed task
+
+**Test 14: Multi-Character Task Testing**
+- [ ] Switch between characters in header
+- [ ] Verify task completion states are character-specific
+- [ ] Complete same task on different characters
+- [ ] Verify each character has independent completion status
+
+### 10.6 Event Management Testing
+
+**Test 15: Event Creation**
+- [ ] Navigate to Events page
+- [ ] Click "Create Event" button
+- [ ] Test event name input
+- [ ] Test event type selection (War, Invasion, Company Event)
+- [ ] Test date/time selection
+- [ ] Test server selection
+- [ ] Test character selection
+- [ ] Test description input
+- [ ] Test RSVP status selection
+- [ ] Create event and verify it appears in list
+
+**Test 16: Event Editing**
+- [ ] Click edit button on existing event
+- [ ] Modify event details
+- [ ] Change date/time
+- [ ] Change participating character
+- [ ] Update RSVP status
+- [ ] Save changes and verify updates
+
+**Test 17: Event Deletion**
+- [ ] Click delete button on event
+- [ ] Verify confirmation dialog
+- [ ] Test deletion cancellation
+- [ ] Confirm deletion and verify event is removed
+
+### 10.7 Calendar Integration Testing
+
+**Test 18: Calendar View**
+- [ ] Navigate to Calendar page
+- [ ] Verify calendar loads with current month
+- [ ] Test month navigation (previous/next)
+- [ ] Test view switching (month/week/day)
+- [ ] Verify events appear on calendar
+- [ ] Check event colors correspond to types
+
+**Test 19: Calendar Event Creation**
+- [ ] Click on empty calendar date
+- [ ] Verify event creation modal opens
+- [ ] Fill event details
+- [ ] Save event
+- [ ] Verify event appears on calendar
+
+**Test 20: Calendar Event Interaction**
+- [ ] Click on existing event on calendar
+- [ ] Verify event details modal opens
+- [ ] Edit event details
+- [ ] Save changes
+- [ ] Verify changes reflect on calendar
+
+**Test 21: Calendar Drag & Drop**
+- [ ] Drag event to different date
+- [ ] Verify event time updates
+- [ ] Drag event to different time slot
+- [ ] Verify time change persists
+
+### 10.8 Time & Reset Timer Testing
+
+**Test 22: Server Time Display**
+- [ ] Navigate to Dashboard
+- [ ] Verify server time displays for selected character
+- [ ] Switch characters
+- [ ] Verify server time updates for different timezones
+- [ ] Check header server time display
+
+**Test 23: Reset Timer Testing**
+- [ ] Navigate to Dashboard
+- [ ] Verify daily reset timer displays
+- [ ] Verify weekly reset timer displays
+- [ ] Check countdown format (HH:MM:SS)
+- [ ] Verify timers update in real-time
+- [ ] Test with characters on different servers
+
+**Test 24: Reset Behavior**
+- [ ] Wait for or simulate daily reset time (5 AM server time)
+- [ ] Verify completed tasks reset to incomplete
+- [ ] Check weekly reset behavior (Tuesday 5 AM server time)
+- [ ] Verify reset timers recalculate correctly
+
+### 10.9 Settings & Preferences Testing
+
+**Test 25: Settings Navigation**
+- [ ] Navigate to Settings page
+- [ ] Verify all settings sections are present
+- [ ] Check Server Management section
+- [ ] Check Application Settings section
+- [ ] Check Notifications section
+
+**Test 26: Theme Testing**
+- [ ] Toggle Dark Mode on/off
+- [ ] Verify theme changes apply immediately
+- [ ] Check theme persistence on restart
+- [ ] Verify all components respect theme
+
+**Test 27: Notification Settings**
+- [ ] Toggle desktop notifications
+- [ ] Toggle sound alerts
+- [ ] Toggle daily reset notifications
+- [ ] Toggle weekly reset notifications
+- [ ] Toggle event notifications
+- [ ] Verify settings persist
+
+### 10.10 Error Handling & Edge Cases
+
+**Test 28: Form Validation**
+- [ ] Try creating character with empty name
+- [ ] Try creating server with duplicate name
+- [ ] Try creating event with invalid date
+- [ ] Verify proper error messages display
+- [ ] Test field validation on all forms
+
+**Test 29: Data Consistency**
+- [ ] Delete server with associated characters
+- [ ] Verify proper dependency handling
+- [ ] Delete character with associated events
+- [ ] Check data integrity maintenance
+
+**Test 30: Performance & Stability**
+- [ ] Create multiple characters (10+)
+- [ ] Create multiple events (50+)
+- [ ] Test application responsiveness
+- [ ] Monitor memory usage
+- [ ] Test with large datasets
+
+### 10.11 Cross-Platform Testing
+
+**Test 31: Build & Distribution**
+- [ ] Test `npm run build-electron` completes successfully
+- [ ] Test `npm run electron` launches application
+- [ ] Verify portable executable creation
+- [ ] Test application startup time (<2 seconds)
+- [ ] Verify all features work in production build
+- [ ] Confirm clean build output with minimal warnings (accessibility warnings resolved)
+
+**Test 32: Database Persistence**
+- [ ] Create test data (characters, servers, events)
+- [ ] Close application
+- [ ] Restart application
+- [ ] Verify all data persists correctly
+- [ ] Test database initialization on first run
+
+### 10.12 Integration Testing
+
+**Test 33: End-to-End Character Workflow**
+- [ ] Create new server
+- [ ] Create character on that server
+- [ ] Assign tasks to character
+- [ ] Complete tasks
+- [ ] Create events for character
+- [ ] View character's events on calendar
+- [ ] Verify server time calculations
+
+**Test 34: Multi-Character Scenario**
+- [ ] Create characters on different servers
+- [ ] Create events for different characters
+- [ ] Switch between characters
+- [ ] Verify timezone calculations
+- [ ] Test task completion independence
+- [ ] Verify calendar shows all characters' events
+
+### 10.13 Final System Testing
+
+**Test 35: Full Application Stress Test**
+- [ ] Create 5+ servers across different regions
+- [ ] Create 10+ characters across different servers
+- [ ] Create 20+ events across different dates
+- [ ] Complete multiple tasks
+- [ ] Navigate through all views multiple times
+- [ ] Verify performance remains acceptable
+- [ ] Check for memory leaks or crashes
+
+**Test 36: User Experience Validation**
+- [ ] Test complete new user onboarding flow
+- [ ] Verify intuitive navigation
+- [ ] Check error message clarity
+- [ ] Validate form feedback
+- [ ] Test accessibility (keyboard navigation)
+- [ ] Verify responsive design
+
+### 10.14 Testing Checklist Summary
+
+**Critical Functions (Must Pass):**
+- [ ] Application launches successfully
+- [ ] All navigation works
+- [ ] Server CRUD operations work
+- [ ] Character CRUD operations work
+- [ ] Task completion tracking works
+- [ ] Event management works
+- [ ] Calendar integration works
+- [ ] Database persistence works
+- [ ] Time calculations are accurate
+- [ ] No critical errors in console
+
+**Enhancement Functions (Should Pass):**
+- [ ] Modal interactions are smooth
+- [ ] Form validation is helpful
+- [ ] UI feedback is clear
+- [ ] Performance is acceptable
+- [ ] Theme switching works
+- [ ] Settings persist
+
+**Edge Cases (Nice to Have):**
+- [ ] Error recovery works
+- [ ] Large dataset handling
+- [ ] Concurrent operations
+- [ ] Network interruption handling
+- [ ] Cross-platform compatibility
+
+---
+
+## 11. Testing Notes & Requirements
+
+### 11.1 Testing Environment
+- **Operating System**: Windows 10+, macOS 10.14+, or Linux
+- **RAM**: Minimum 4GB available
+- **Storage**: 100MB free space
+- **Node.js**: Version 18+ (for development testing)
+- **Browser**: Chromium-based (Electron runtime)
+
+### 11.2 Testing Tools
+- **Manual Testing**: Primary testing method
+- **Developer Tools**: For monitoring console errors
+- **Database Browser**: For verifying data persistence
+- **Timer**: For performance measurement
+
+### 11.3 Test Result Documentation
+For each test, document:
+- [ ] **Pass/Fail Status**
+- [ ] **Error Messages** (if any)
+- [ ] **Console Warnings** (if any)
+- [ ] **Performance Notes** (if applicable)
+- [ ] **User Experience Issues** (if any)
+
+### 11.4 Critical Test Failure Criteria
+**Application is NOT ready for production if:**
+- Database operations fail
+- Character/Server CRUD operations fail
+- Navigation breaks
+- Time calculations are incorrect
+- Data persistence fails
+- Critical console errors appear
+
+**Application is ready for production when:**
+- All critical functions pass
+- No data loss occurs
+- Performance is acceptable
+- User experience is intuitive
+- Error handling is graceful
+
+---
+
+*This comprehensive testing protocol ensures every individual interaction in the New World Planner application is thoroughly validated before production release.*

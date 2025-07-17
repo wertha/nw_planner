@@ -1,0 +1,263 @@
+import Database from 'better-sqlite3'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import os from 'os'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+class DatabaseService {
+    constructor() {
+        this.db = null
+        this.initialized = false
+    }
+
+    async init(userDataPath = null) {
+        if (this.initialized) return
+        
+        // Use provided path or default to user data directory
+        let dbPath
+        if (userDataPath) {
+            dbPath = path.join(userDataPath, 'nw_planner.db')
+        } else {
+            // Fallback for development/web mode
+            const homeDir = os.homedir()
+            const appDataDir = path.join(homeDir, '.nw-planner')
+            
+            // Create directory if it doesn't exist
+            try {
+                const fs = await import('fs')
+                await fs.promises.mkdir(appDataDir, { recursive: true })
+            } catch (error) {
+                console.error('Error creating app data directory:', error)
+            }
+            
+            dbPath = path.join(appDataDir, 'nw_planner.db')
+        }
+        
+        console.log('Initializing database at:', dbPath)
+        this.db = new Database(dbPath)
+        
+        // Enable foreign keys
+        this.db.pragma('foreign_keys = ON')
+        
+        // Create tables
+        this.createTables()
+        
+        this.initialized = true
+    }
+
+    createTables() {
+        // Servers table
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS servers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                region TEXT NOT NULL CHECK(region IN ('AP Southeast', 'SA East', 'US West', 'US East', 'EU Central')),
+                timezone TEXT NOT NULL,
+                active_status BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `)
+
+        // Characters table
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS characters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                server_name TEXT NOT NULL,
+                server_timezone TEXT NOT NULL,
+                faction TEXT CHECK(faction IN ('Factionless', 'Marauders', 'Covenant', 'Syndicate')) DEFAULT 'Factionless',
+                company TEXT,
+                active_status BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT,
+                avatar_path TEXT
+            )
+        `)
+
+        // Task definitions
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                type TEXT CHECK(type IN ('daily', 'weekly')) NOT NULL,
+                priority TEXT CHECK(priority IN ('Low', 'Medium', 'High', 'Critical')) DEFAULT 'Medium',
+                rewards TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `)
+
+        // Task assignments to characters
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS task_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+                character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(task_id, character_id)
+            )
+        `)
+
+        // Task completion tracking
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS task_completions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+                character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reset_period TEXT NOT NULL,
+                streak_count INTEGER DEFAULT 1,
+                UNIQUE(task_id, character_id, reset_period)
+            )
+        `)
+
+        // Events table
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                event_type TEXT NOT NULL,
+                server_name TEXT,
+                event_time TIMESTAMP NOT NULL,
+                timezone TEXT NOT NULL,
+                character_id INTEGER REFERENCES characters(id) ON DELETE CASCADE,
+                participation_status TEXT CHECK(participation_status IN ('Signed Up', 'Confirmed', 'Absent', 'Tentative')) DEFAULT 'Signed Up',
+                location TEXT,
+                recurring_pattern TEXT,
+                notification_enabled BOOLEAN DEFAULT 1,
+                notification_minutes INTEGER DEFAULT 30,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `)
+
+        // Create indexes for performance
+        this.db.exec(`
+            CREATE INDEX IF NOT EXISTS idx_servers_region ON servers(region);
+            CREATE INDEX IF NOT EXISTS idx_servers_name ON servers(name);
+            CREATE INDEX IF NOT EXISTS idx_characters_server ON characters(server_name);
+            CREATE INDEX IF NOT EXISTS idx_task_completions_character ON task_completions(character_id);
+            CREATE INDEX IF NOT EXISTS idx_task_completions_reset_period ON task_completions(reset_period);
+            CREATE INDEX IF NOT EXISTS idx_events_character ON events(character_id);
+            CREATE INDEX IF NOT EXISTS idx_events_time ON events(event_time);
+        `)
+
+        // Create triggers for timestamp updates
+        this.db.exec(`
+            CREATE TRIGGER IF NOT EXISTS update_character_timestamp 
+                BEFORE UPDATE ON characters 
+                FOR EACH ROW 
+                BEGIN
+                    UPDATE characters SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+                END;
+        `)
+
+        // Note: Default tasks are no longer automatically inserted to keep the app clean
+        // Users can manually add tasks or import data if needed
+    }
+
+    insertDefaultTasks() {
+        const defaultTasks = [
+            // Daily tasks
+            { name: 'Daily Faction Missions', description: 'Complete 3 faction missions', type: 'daily', priority: 'High', rewards: 'Faction Tokens, Gold' },
+            { name: 'Territory Standing', description: 'Complete settlement board missions', type: 'daily', priority: 'Medium', rewards: 'Territory Standing' },
+            { name: 'Gypsum Orb Crafting', description: 'Craft daily gypsum orbs', type: 'daily', priority: 'Critical', rewards: 'Expertise Bumps' },
+            { name: 'Daily Gathering', description: 'Complete daily gathering activities', type: 'daily', priority: 'Medium', rewards: 'Resources, XP' },
+            { name: 'Expedition Run', description: 'Complete daily expedition', type: 'daily', priority: 'High', rewards: 'Gear, Umbral Shards' },
+            { name: 'OPR/Arena', description: 'Participate in PvP activities', type: 'daily', priority: 'Medium', rewards: 'Azoth Salt, XP' },
+            { name: 'Elite Chest Run', description: 'Complete elite area chest runs', type: 'daily', priority: 'High', rewards: 'Gear, Resources' },
+            
+            // Weekly tasks
+            { name: 'Weekly Faction Missions', description: 'Complete weekly faction mission', type: 'weekly', priority: 'High', rewards: 'Faction Tokens, Gold' },
+            { name: 'Weekly Expedition', description: 'Complete weekly expedition bonus', type: 'weekly', priority: 'Medium', rewards: 'Extra Rewards' },
+            { name: 'Territory War', description: 'Participate in territory wars', type: 'weekly', priority: 'Critical', rewards: 'Territory Control' },
+            { name: 'Company Activities', description: 'Participate in company events', type: 'weekly', priority: 'Medium', rewards: 'Social, Resources' },
+            { name: 'Weekly Gathering Goals', description: 'Complete weekly gathering objectives', type: 'weekly', priority: 'Low', rewards: 'Resources' },
+            { name: 'Weekly Crafting', description: 'Complete weekly crafting goals', type: 'weekly', priority: 'Low', rewards: 'Crafting XP' }
+        ]
+
+        const checkTask = this.db.prepare('SELECT id FROM tasks WHERE name = ?')
+        const insertTask = this.db.prepare('INSERT INTO tasks (name, description, type, priority, rewards) VALUES (?, ?, ?, ?, ?)')
+
+        defaultTasks.forEach(task => {
+            const existing = checkTask.get(task.name)
+            if (!existing) {
+                insertTask.run(task.name, task.description, task.type, task.priority, task.rewards)
+            }
+        })
+    }
+
+    // Ensure database is initialized
+    async ensureInitialized() {
+        if (!this.initialized) {
+            await this.init()
+        }
+    }
+
+    // Generic query methods
+    async prepare(sql) {
+        await this.ensureInitialized()
+        return this.db.prepare(sql)
+    }
+
+    async exec(sql) {
+        await this.ensureInitialized()
+        return this.db.exec(sql)
+    }
+
+    async transaction(fn) {
+        await this.ensureInitialized()
+        return this.db.transaction(fn)
+    }
+
+    close() {
+        if (this.db) {
+            this.db.close()
+        }
+    }
+
+    // Delete all data from the database
+    async deleteAllData() {
+        await this.ensureInitialized()
+        
+        const transaction = this.db.transaction([
+            'DELETE FROM task_completions',
+            'DELETE FROM task_assignments', 
+            'DELETE FROM events',
+            'DELETE FROM tasks',
+            'DELETE FROM characters',
+            'DELETE FROM servers'
+        ])
+        
+        transaction()
+        
+        console.log('All data deleted from database')
+        return true
+    }
+
+    // Export all data from the database
+    async exportData() {
+        await this.ensureInitialized()
+        
+        const data = {
+            characters: this.db.prepare('SELECT * FROM characters').all(),
+            tasks: this.db.prepare('SELECT * FROM tasks').all(),
+            events: this.db.prepare('SELECT * FROM events').all(),
+            task_assignments: this.db.prepare('SELECT * FROM task_assignments').all(),
+            task_completions: this.db.prepare('SELECT * FROM task_completions').all(),
+            servers: this.db.prepare('SELECT * FROM servers').all(),
+            exportedAt: new Date().toISOString(),
+            version: '1.0.0'
+        }
+        
+        return data
+    }
+}
+
+// Export singleton instance
+const database = new DatabaseService()
+export default database 
