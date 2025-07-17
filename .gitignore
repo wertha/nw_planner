@@ -70,7 +70,39 @@ Thumbs.db
 
 # Electron-builder output
 release/
+out/
+
+# Electron specific
+*.electron/
+electron-builder.yml
+app/dist/
+
+# Svelte specific
+.output/
+
+# Vite specific
+dist-ssr/
+*.local
+
+# Database files (if using local storage)
+*.db
+*.sqlite
+*.sqlite3
 
 # Temporary folders
 tmp/
-temp/ 
+temp/
+
+# System files
+*.DS_Store
+desktop.ini
+
+# Lock files (keep package-lock.json but ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Editor backups
+*~
+*.bak
+*.swp
+*.tmp 
