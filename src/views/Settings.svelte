@@ -22,6 +22,7 @@
   let showServerModal = false
   let editingServer = null
   let serverLoading = true
+  let serverStats = { total: 0, active: 0, inactive: 0 }
   
   onMount(async () => {
     setTimeout(() => {
@@ -39,6 +40,7 @@
     
     // Load servers
     await loadServers()
+    await loadServerStats()
     
     return () => {
       unsubscribeDark()
@@ -112,6 +114,15 @@
     }
   }
 
+  async function loadServerStats() {
+    try {
+      serverStats = await api.getServerStatistics()
+    } catch (error) {
+      console.error('Error loading server statistics:', error)
+      serverStats = { total: servers?.length || 0, active: (servers || []).filter(s => s.active_status).length, inactive: (servers || []).filter(s => !s.active_status).length }
+    }
+  }
+
   function openServerModal(server = null) {
     editingServer = server
     showServerModal = true
@@ -124,6 +135,7 @@
 
   async function handleServerSaved() {
     await loadServers()
+    await loadServerStats()
     closeServerModal()
   }
 
@@ -131,6 +143,7 @@
     try {
       await api.updateServerActiveStatus(server.id, !server.active_status)
       await loadServers()
+      await loadServerStats()
     } catch (error) {
       console.error('Error updating server status:', error)
       alert('Error updating server status: ' + error.message)
@@ -142,6 +155,7 @@
       try {
         await api.deleteServer(server.id)
         await loadServers()
+        await loadServerStats()
       } catch (error) {
         console.error('Error deleting server:', error)
         alert('Error deleting server: ' + error.message)
@@ -243,7 +257,16 @@
       <!-- Server Management -->
       <div class="card">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Server Management</h2>
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Server Management</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Servers: <span class="font-medium">{serverStats.total}</span>
+              <span class="mx-2">•</span>
+              Active: <span class="font-medium text-green-700 dark:text-green-300">{serverStats.active}</span>
+              <span class="mx-2">•</span>
+              Inactive: <span class="font-medium text-gray-700 dark:text-gray-300">{serverStats.inactive}</span>
+            </p>
+          </div>
           <button
             on:click={() => openServerModal()}
             class="px-4 py-2 bg-nw-blue text-white rounded-md hover:bg-nw-blue-dark transition-colors"
