@@ -686,23 +686,23 @@ console.log('Database initialization status:',
 - [x] Verify character shows server timezone correctly
 
 **Test 9: Character Editing**
-- [ ] Click edit button on existing character
-- [ ] Modify character name
-- [ ] Change server selection
-- [ ] Change faction
-- [ ] Update company name
-- [ ] Update notes
-- [ ] Toggle active status
-- [ ] Click "Update Character"
-- [ ] Verify changes are saved and displayed
+- [x] Click edit button on existing character
+- [x] Modify character name
+- [x] Change server selection
+- [x] Change faction
+- [x] Update company name
+- [x] Update notes
+- [x] Toggle active status
+- [x] Click "Update Character"
+- [x] Verify changes are saved and displayed
 
 **Test 10: Character Deletion**
-- [ ] Click delete button on character
-- [ ] Verify confirmation dialog
-- [ ] Test "Cancel" - character not deleted
-- [ ] Click delete again and confirm
-- [ ] Verify character is removed
-- [ ] Verify character no longer appears in header dropdown
+- [x] Click delete button on character
+- [x] Verify confirmation dialog
+- [x] Test "Cancel" - character not deleted
+- [x] Click delete again and confirm
+- [x] Verify character is removed
+- [x] Verify character no longer appears in header dropdown
 
 **Test 11: Character Status Management**
 - [ ] Toggle active/inactive status on multiple characters

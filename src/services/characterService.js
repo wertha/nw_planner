@@ -77,10 +77,10 @@ class CharacterService {
 	                throw new Error('Name, server name, and server timezone are required')
 	            }
 
-	            // Validate faction
-	            if (faction && !['Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
-	                throw new Error('Invalid faction. Must be one of: Marauders, Covenant, Syndicate')
-	            }
+            // Validate faction (allow Factionless default)
+            if (faction && !['Factionless', 'Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
+                throw new Error('Invalid faction. Must be one of: Factionless, Marauders, Covenant, Syndicate')
+            }
 
 	            const result = this.statements.insert.run(
 	                name,
@@ -122,10 +122,10 @@ class CharacterService {
 	            const notes = Object.prototype.hasOwnProperty.call(raw, 'notes') ? raw.notes : existing.notes
 	            const avatarPath = (raw.avatarPath ?? raw.avatar_path) ?? existing.avatar_path
 
-	            // Validate faction
-	            if (faction && !['Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
-	                throw new Error('Invalid faction. Must be one of: Marauders, Covenant, Syndicate')
-	            }
+            // Validate faction (allow Factionless default)
+            if (faction && !['Factionless', 'Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
+                throw new Error('Invalid faction. Must be one of: Factionless, Marauders, Covenant, Syndicate')
+            }
 
 	            this.statements.update.run(
 	                name,
