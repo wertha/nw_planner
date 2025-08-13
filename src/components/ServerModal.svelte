@@ -60,26 +60,33 @@
   let loading = false
   let errors = {}
   
+  // Prevent re-initializing form while typing; re-init only when opening or switching target server
+  let initializedForId = null
+  
   // Initialize form data when modal opens or server changes
   $: if (isOpen) {
-    if (server) {
-      // Edit mode
-      formData = {
-        name: server.name || '',
-        region: server.region || '',
-        timezone: server.timezone || '',
-        active_status: server.active_status !== undefined ? server.active_status : true
+    const currentTargetId = server?.id ?? '__create__'
+    if (initializedForId !== currentTargetId) {
+      if (server) {
+        // Edit mode
+        formData = {
+          name: server.name || '',
+          region: server.region || '',
+          timezone: server.timezone || '',
+          active_status: server.active_status !== undefined ? server.active_status : true
+        }
+      } else {
+        // Create mode
+        formData = {
+          name: '',
+          region: '',
+          timezone: '',
+          active_status: true
+        }
       }
-    } else {
-      // Create mode
-      formData = {
-        name: '',
-        region: '',
-        timezone: '',
-        active_status: true
-      }
+      errors = {}
+      initializedForId = currentTargetId
     }
-    errors = {}
   }
   
   // Auto-set common timezone when region changes
@@ -134,6 +141,7 @@
   }
   
   function handleClose() {
+    initializedForId = null
     dispatch('close')
   }
   

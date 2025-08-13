@@ -56,93 +56,95 @@ class CharacterService {
         }
     }
 
-    // Create a new character
-    async create(characterData) {
-        await this.ensureInitialized()
-        try {
-            const {
-                name,
-                serverName,
-                serverTimezone,
-                faction,
-                company = null,
-                activeStatus = true,
-                notes = null,
-                avatarPath = null
-            } = characterData
+	    // Create a new character
+	    async create(characterData) {
+	        await this.ensureInitialized()
+	        try {
+	            const raw = characterData || {}
+	            const name = raw.name
+	            const serverName = raw.serverName ?? raw.server_name
+	            const serverTimezone = raw.serverTimezone ?? raw.server_timezone
+	            const faction = raw.faction
+	            const company = Object.prototype.hasOwnProperty.call(raw, 'company') ? raw.company : null
+	            const activeStatus = Object.prototype.hasOwnProperty.call(raw, 'activeStatus')
+	                ? raw.activeStatus
+	                : (Object.prototype.hasOwnProperty.call(raw, 'active_status') ? raw.active_status : true)
+	            const notes = Object.prototype.hasOwnProperty.call(raw, 'notes') ? raw.notes : null
+	            const avatarPath = raw.avatarPath ?? raw.avatar_path ?? null
 
-            // Validate required fields
-            if (!name || !serverName || !serverTimezone) {
-                throw new Error('Name, server name, and server timezone are required')
-            }
+	            // Validate required fields
+	            if (!name || !serverName || !serverTimezone) {
+	                throw new Error('Name, server name, and server timezone are required')
+	            }
 
-            // Validate faction
-            if (faction && !['Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
-                throw new Error('Invalid faction. Must be one of: Marauders, Covenant, Syndicate')
-            }
+	            // Validate faction
+	            if (faction && !['Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
+	                throw new Error('Invalid faction. Must be one of: Marauders, Covenant, Syndicate')
+	            }
 
-            const result = this.statements.insert.run(
-                name,
-                serverName,
-                serverTimezone,
-                faction,
-                company,
-                activeStatus ? 1 : 0,
-                notes,
-                avatarPath
-            )
+	            const result = this.statements.insert.run(
+	                name,
+	                serverName,
+	                serverTimezone,
+	                faction,
+	                company,
+	                activeStatus ? 1 : 0,
+	                notes,
+	                avatarPath
+	            )
 
-            const character = await this.getById(result.lastInsertRowid)
-            return character
-        } catch (error) {
-            console.error('Error creating character:', error)
-            throw error
-        }
-    }
+	            const character = await this.getById(result.lastInsertRowid)
+	            return character
+	        } catch (error) {
+	            console.error('Error creating character:', error)
+	            throw error
+	        }
+	    }
 
-    // Update an existing character
-    async update(id, characterData) {
-        await this.ensureInitialized()
-        try {
-            const existing = await this.getById(id)
-            if (!existing) {
-                throw new Error('Character not found')
-            }
+	    // Update an existing character
+	    async update(id, characterData) {
+	        await this.ensureInitialized()
+	        try {
+	            const existing = await this.getById(id)
+	            if (!existing) {
+	                throw new Error('Character not found')
+	            }
 
-            const {
-                name = existing.name,
-                serverName = existing.server_name,
-                serverTimezone = existing.server_timezone,
-                faction = existing.faction,
-                company = existing.company,
-                activeStatus = existing.active_status,
-                notes = existing.notes,
-                avatarPath = existing.avatar_path
-            } = characterData
+	            const raw = characterData || {}
+	            const name = raw.name ?? existing.name
+	            const serverName = (raw.serverName ?? raw.server_name) ?? existing.server_name
+	            const serverTimezone = (raw.serverTimezone ?? raw.server_timezone) ?? existing.server_timezone
+	            const faction = raw.faction ?? existing.faction
+	            const company = Object.prototype.hasOwnProperty.call(raw, 'company') ? raw.company : existing.company
+	            const activeStatus = Object.prototype.hasOwnProperty.call(raw, 'activeStatus')
+	                ? raw.activeStatus
+	                : (Object.prototype.hasOwnProperty.call(raw, 'active_status') ? raw.active_status : existing.active_status)
+	            const notes = Object.prototype.hasOwnProperty.call(raw, 'notes') ? raw.notes : existing.notes
+	            const avatarPath = (raw.avatarPath ?? raw.avatar_path) ?? existing.avatar_path
 
-            // Validate faction
-            if (faction && !['Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
-                throw new Error('Invalid faction. Must be one of: Marauders, Covenant, Syndicate')
-            }
+	            // Validate faction
+	            if (faction && !['Marauders', 'Covenant', 'Syndicate'].includes(faction)) {
+	                throw new Error('Invalid faction. Must be one of: Marauders, Covenant, Syndicate')
+	            }
 
-            this.statements.update.run(
-                name,
-                serverName,
-                serverTimezone,
-                faction,
-                company,
-                activeStatus ? 1 : 0,
-                notes,
-                avatarPath,
-                id
-            )
+	            this.statements.update.run(
+	                name,
+	                serverName,
+	                serverTimezone,
+	                faction,
+	                company,
+	                activeStatus ? 1 : 0,
+	                notes,
+	                avatarPath,
+	                id
+	            )
 
-            return await this.getById(id)
-        } catch (error) {
-            console.error('Error updating character:', error)
-            throw error
-        }
-    }
+	            return await this.getById(id)
+	        } catch (error) {
+	            console.error('Error updating character:', error)
+	            throw error
+	        }
+	    }
 
     // Delete a character
     async delete(id) {

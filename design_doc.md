@@ -633,57 +633,57 @@ console.log('Database initialization status:',
 - [x] Verify "Add Server" button is present
 
 **Test 4: Server Creation**
-- [ ] Click "Add Server" button
-- [ ] Verify ServerModal opens with empty form
-- [ ] Test server name input field (type text)
-- [ ] Test region dropdown (select each region)
-- [ ] Verify timezone auto-populates based on region
-- [ ] Test timezone dropdown (select different timezones)
-- [ ] Test active status checkbox
-- [ ] Click "Create Server" with valid data
-- [ ] Verify server appears in server list
-- [ ] Verify success feedback/notification
+- [x] Click "Add Server" button
+- [x] Verify ServerModal opens with empty form
+- [x] Test server name input field (type text)
+- [x] Test region dropdown (select each region)
+- [x] Verify timezone auto-populates based on region
+- [x] Test timezone dropdown (select different timezones)
+- [x] Test active status checkbox
+- [x] Click "Create Server" with valid data
+- [x] Verify server appears in server list
+- [x] Verify success feedback/notification
 
 **Test 5: Server Editing**
-- [ ] Click edit button (✏️) on an existing server
-- [ ] Verify ServerModal opens with populated data
-- [ ] Modify server name
-- [ ] Change region (verify timezone updates)
-- [ ] Change timezone manually
-- [ ] Toggle active status
-- [ ] Click "Update Server"
-- [ ] Verify changes are saved and reflected in list
-- [ ] Verify success feedback
+- [x] Click edit button (✏️) on an existing server
+- [x] Verify ServerModal opens with populated data
+- [x] Modify server name
+- [x] Change region (verify timezone updates)
+- [x] Change timezone manually
+- [x] Toggle active status
+- [x] Click "Update Server"
+- [x] Verify changes are saved and reflected in list
+- [x] Verify success feedback
 
 **Test 6: Server Deletion**
-- [ ] Click delete button (🗑️) on a server
-- [ ] Verify delete confirmation dialog appears
-- [ ] Click "Cancel" - verify server is NOT deleted
-- [ ] Click delete button again
-- [ ] Click "Confirm Delete" - verify server is removed
-- [ ] Verify success feedback
-- [ ] Verify server count updates
+- [x] Click delete button (🗑️) on a server
+- [x] Verify delete confirmation dialog appears
+- [x] Click "Cancel" - verify server is NOT deleted
+- [x] Click delete button again
+- [x] Click "Confirm Delete" - verify server is removed
+- [x] Verify success feedback
+- [x] Verify server count updates
 
 **Test 7: Server Status Management**
-- [ ] Click active/inactive toggle on multiple servers
-- [ ] Verify status changes immediately
-- [ ] Verify inactive servers are visually distinguished
+- [x] Click active/inactive toggle on multiple servers
+- [x] Verify status changes immediately
+- [x] Verify inactive servers are visually distinguished
 - [ ] Test bulk status changes on multiple servers
 
 ### 10.4 Character Management Testing
 
 **Test 8: Character Creation**
-- [ ] Navigate to Characters page
-- [ ] Click "Add Character" button
-- [ ] Test character name input field
-- [ ] Test server selection dropdown (shows active servers only)
-- [ ] Test faction selection (Factionless, Marauders, Covenant, Syndicate)
-- [ ] Test company name input (optional)
-- [ ] Test notes input (optional)
-- [ ] Test active status checkbox
-- [ ] Click "Create Character" with valid data
-- [ ] Verify character appears in character list
-- [ ] Verify character shows server timezone correctly
+- [x] Navigate to Characters page
+- [x] Click "Add Character" button
+- [x] Test character name input field
+- [x] Test server selection dropdown (shows active servers only)
+- [x] Test faction selection (Factionless, Marauders, Covenant, Syndicate)
+- [x] Test company name input (optional)
+- [x] Test notes input (optional)
+- [x] Test active status checkbox
+- [x] Click "Create Character" with valid data
+- [x] Verify character appears in character list
+- [x] Verify character shows server timezone correctly
 
 **Test 9: Character Editing**
 - [ ] Click edit button on existing character

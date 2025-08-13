@@ -30,34 +30,41 @@
   let loading = false
   let errors = {}
   
+  // Prevent re-initializing form while typing; only initialize when opening or switching target
+  let initializedForId = null
+  
   // Load servers when modal opens
   $: if (isOpen) {
-    loadServers()
-    
-    if (character) {
-      // Edit mode
-      formData = {
-        name: character.name || '',
-        server_name: character.server_name || '',
-        server_timezone: character.server_timezone || '',
-        faction: character.faction || 'Factionless',
-        company: character.company || '',
-        active_status: character.active_status !== undefined ? character.active_status : true,
-        notes: character.notes || ''
+    const currentTargetId = character?.id ?? '__create__'
+    if (initializedForId !== currentTargetId) {
+      loadServers()
+      
+      if (character) {
+        // Edit mode
+        formData = {
+          name: character.name || '',
+          server_name: character.server_name || '',
+          server_timezone: character.server_timezone || '',
+          faction: character.faction || 'Factionless',
+          company: character.company || '',
+          active_status: character.active_status !== undefined ? character.active_status : true,
+          notes: character.notes || ''
+        }
+      } else {
+        // Create mode
+        formData = {
+          name: '',
+          server_name: '',
+          server_timezone: '',
+          faction: 'Factionless',
+          company: '',
+          active_status: true,
+          notes: ''
+        }
       }
-    } else {
-      // Create mode
-      formData = {
-        name: '',
-        server_name: '',
-        server_timezone: '',
-        faction: 'Factionless',
-        company: '',
-        active_status: true,
-        notes: ''
-      }
+      errors = {}
+      initializedForId = currentTargetId
     }
-    errors = {}
   }
   
   // Auto-set timezone when server changes
@@ -139,6 +146,7 @@
   
   function close() {
     isOpen = false
+    initializedForId = null
     formData = {
       name: '',
       server_name: '',
