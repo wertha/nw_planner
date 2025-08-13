@@ -290,8 +290,8 @@ class TimeZoneService {
 Layout Structure:
 ├── Header Bar
 │   ├── App Title/Logo
-│   ├── Character Selector (multi-select dropdown)
-│   ├── Server Time Display (for selected characters)
+│   ├── Upcoming Events (next three)
+│   ├── Local Time Display
 │   └── Settings/Menu
 ├── Sidebar Navigation
 │   ├── Dashboard
@@ -311,12 +311,12 @@ Layout Structure:
 - Upcoming events (next 24-48 hours)
 - Reset timers (daily at 5 AM, weekly on Tuesday - calculated based on each server's time NOT local time)
 - Quick completion checkboxes
-- Server time clocks for active characters
+- Header shows next three upcoming events
 - Character-specific task summaries
 
 #### 4.2.2 Calendar View
 - Full calendar with all events and tasks
-- Character filter toggles (multi-select)
+- Character filter toggles (multi-select) act as the primary character selector (header no longer lists characters)
 - Color-coded by character/event type
 - Daily reset markers (5 AM server time)
 - Weekly reset markers (Tuesday at 5 AM server time)
@@ -606,7 +606,7 @@ console.log('Database initialization status:',
 
 **Test 1: Application Launch & Initial State**
 - [x] Application window opens at correct size (1200x800)
-- [x] Header displays "New World Planner" title
+- [x] Header displays "New World Planner" title and Upcoming Events section
 - [x] Sidebar navigation is visible with all menu items
 - [x] Dashboard is selected by default
 - [x] No console errors on startup
@@ -702,13 +702,13 @@ console.log('Database initialization status:',
 - [x] Test "Cancel" - character not deleted
 - [x] Click delete again and confirm
 - [x] Verify character is removed
-- [x] Verify character no longer appears in header dropdown
+- [x] Verify character no longer appears in character filters (Calendar)
 
 **Test 11: Character Status Management**
-- [ ] Toggle active/inactive status on multiple characters
-- [ ] Verify status changes immediately
-- [ ] Verify inactive characters are visually marked
-- [ ] Check header dropdown only shows active characters
+- [x] Toggle active/inactive status on multiple characters
+- [x] Verify status changes immediately
+- [x] Verify inactive characters are visually marked
+- [x] Verify Calendar character filters only list active characters
 
 ### 10.5 Task Management Testing
 
@@ -720,7 +720,7 @@ console.log('Database initialization status:',
 - [ ] Check task completion checkboxes
 
 **Test 13: Task Completion**
-- [ ] Select a character from header dropdown
+- [ ] Select a character in Calendar filters (header no longer lists characters)
 - [ ] Click completion checkbox on daily task
 - [ ] Verify task is marked as completed
 - [ ] Verify completion persists on page refresh
@@ -728,7 +728,7 @@ console.log('Database initialization status:',
 - [ ] Test unchecking completed task
 
 **Test 14: Multi-Character Task Testing**
-- [ ] Switch between characters in header
+- [ ] Switch between characters using Calendar filters
 - [ ] Verify task completion states are character-specific
 - [ ] Complete same task on different characters
 - [ ] Verify each character has independent completion status
@@ -837,31 +837,39 @@ console.log('Database initialization status:',
 - [ ] Toggle event notifications
 - [ ] Verify settings persist
 
-### 10.10 Error Handling & Edge Cases
+### 10.10 Header Upcoming Events (NEW)
 
-**Test 28: Form Validation**
+**Test 28: Upcoming Events in Header**
+- [ ] Header shows up to three upcoming events ordered by soonest
+- [ ] Each event displays name, type, optional server, and local date/time
+- [ ] When creating/updating/deleting an event, header refreshes within a minute or on window focus
+- [ ] When there are no upcoming events, header shows a friendly empty state
+
+### 10.11 Error Handling & Edge Cases
+
+**Test 29: Form Validation**
 - [ ] Try creating character with empty name
 - [ ] Try creating server with duplicate name
 - [ ] Try creating event with invalid date
 - [ ] Verify proper error messages display
 - [ ] Test field validation on all forms
 
-**Test 29: Data Consistency**
+**Test 30: Data Consistency**
 - [ ] Delete server with associated characters
 - [ ] Verify proper dependency handling
 - [ ] Delete character with associated events
 - [ ] Check data integrity maintenance
 
-**Test 30: Performance & Stability**
+**Test 31: Performance & Stability**
 - [ ] Create multiple characters (10+)
 - [ ] Create multiple events (50+)
 - [ ] Test application responsiveness
 - [ ] Monitor memory usage
 - [ ] Test with large datasets
 
-### 10.11 Cross-Platform Testing
+### 10.12 Cross-Platform Testing
 
-**Test 31: Build & Distribution**
+**Test 32: Build & Distribution**
 - [ ] Test `npm run build-electron` completes successfully
 - [ ] Test `npm run electron` launches application
 - [ ] Verify portable executable creation
@@ -869,16 +877,16 @@ console.log('Database initialization status:',
 - [ ] Verify all features work in production build
 - [ ] Confirm clean build output with minimal warnings (accessibility warnings resolved)
 
-**Test 32: Database Persistence**
+**Test 33: Database Persistence**
 - [ ] Create test data (characters, servers, events)
 - [ ] Close application
 - [ ] Restart application
 - [ ] Verify all data persists correctly
 - [ ] Test database initialization on first run
 
-### 10.12 Integration Testing
+### 10.13 Integration Testing
 
-**Test 33: End-to-End Character Workflow**
+**Test 34: End-to-End Character Workflow**
 - [ ] Create new server
 - [ ] Create character on that server
 - [ ] Assign tasks to character
@@ -887,7 +895,7 @@ console.log('Database initialization status:',
 - [ ] View character's events on calendar
 - [ ] Verify server time calculations
 
-**Test 34: Multi-Character Scenario**
+**Test 35: Multi-Character Scenario**
 - [ ] Create characters on different servers
 - [ ] Create events for different characters
 - [ ] Switch between characters
@@ -895,9 +903,9 @@ console.log('Database initialization status:',
 - [ ] Test task completion independence
 - [ ] Verify calendar shows all characters' events
 
-### 10.13 Final System Testing
+### 10.14 Final System Testing
 
-**Test 35: Full Application Stress Test**
+**Test 36: Full Application Stress Test**
 - [ ] Create 5+ servers across different regions
 - [ ] Create 10+ characters across different servers
 - [ ] Create 20+ events across different dates
@@ -906,7 +914,7 @@ console.log('Database initialization status:',
 - [ ] Verify performance remains acceptable
 - [ ] Check for memory leaks or crashes
 
-**Test 36: User Experience Validation**
+**Test 37: User Experience Validation**
 - [ ] Test complete new user onboarding flow
 - [ ] Verify intuitive navigation
 - [ ] Check error message clarity
@@ -914,7 +922,7 @@ console.log('Database initialization status:',
 - [ ] Test accessibility (keyboard navigation)
 - [ ] Verify responsive design
 
-### 10.14 Testing Checklist Summary
+### 10.15 Testing Checklist Summary
 
 **Critical Functions (Must Pass):**
 - [ ] Application launches successfully

@@ -1,26 +1,18 @@
 <script>
   import { onMount } from 'svelte'
-  import { selectedCharacters, darkMode } from '../stores/ui'
+  import { darkMode } from '../stores/ui'
   import api from '../services/api.js'
-  import ServerTimeDisplay from './ServerTimeDisplay.svelte'
   
-  let characters = []
-  let selectedCharacterIds = []
   let darkModeEnabled = false
-  let loading = true
-  let selectedCharacterServers = []
+  let eventsLoading = true
+  let upcomingEvents = []
+  let refreshIntervalId = null
   
   onMount(async () => {
-    await loadCharacters()
-    
-    // Subscribe to stores
-    const unsubscribeSelected = selectedCharacters.subscribe(value => {
-      selectedCharacterIds = value
-    })
+    await loadUpcomingEvents()
     
     const unsubscribeDark = darkMode.subscribe(value => {
       darkModeEnabled = value
-      // Apply dark mode to document
       if (darkModeEnabled) {
         document.documentElement.classList.add('dark')
       } else {
@@ -28,25 +20,29 @@
       }
     })
     
+    const handleFocus = () => loadUpcomingEvents()
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) loadUpcomingEvents()
+    })
+    refreshIntervalId = setInterval(loadUpcomingEvents, 60000)
+    
     return () => {
-      unsubscribeSelected()
       unsubscribeDark()
+      window.removeEventListener('focus', handleFocus)
+      if (refreshIntervalId) clearInterval(refreshIntervalId)
     }
   })
   
-  async function loadCharacters() {
-    loading = true
+  async function loadUpcomingEvents() {
+    eventsLoading = true
     try {
-      characters = await api.getActiveCharacters()
-      
-      // If no characters are selected, select the first one by default
-      if (selectedCharacterIds.length === 0 && characters.length > 0) {
-        selectedCharacters.set([characters[0].id])
-      }
+      upcomingEvents = await api.getUpcomingEvents(3)
     } catch (error) {
-      console.error('Error loading characters:', error)
+      console.error('Error loading upcoming events:', error)
+      upcomingEvents = []
     } finally {
-      loading = false
+      eventsLoading = false
     }
   }
   
@@ -54,24 +50,11 @@
     darkMode.update(value => !value)
   }
   
-  function toggleCharacterSelection(characterId) {
-    selectedCharacters.update(selected => {
-      if (selected.includes(characterId)) {
-        return selected.filter(id => id !== characterId)
-      } else {
-        return [...selected, characterId]
-      }
-    })
-  }
-
-  // Update selected character servers when selection changes
-  $: {
-    if (characters.length > 0 && selectedCharacterIds.length > 0) {
-      const selected = characters.filter(c => selectedCharacterIds.includes(c.id))
-      selectedCharacterServers = [...new Set(selected.map(c => c.server_name))]
-    } else {
-      selectedCharacterServers = []
-    }
+  function formatEventDateTime(isoString) {
+    const d = new Date(isoString)
+    const date = d.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })
+    const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    return `${date} • ${time}`
   }
 </script>
 
@@ -87,27 +70,30 @@
       </span>
     </div>
     
-    <!-- Center - Character Selector -->
+    <!-- Center - Upcoming Events -->
     <div class="flex items-center space-x-4">
       <div class="relative">
-        <label for="character-selector" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-          Active Characters
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+          Upcoming Events
         </label>
         <div class="flex space-x-2">
-          {#each characters as character}
-            <button
-              class="px-3 py-1 text-sm rounded-md border {
-                selectedCharacterIds.includes(character.id)
-                  ? 'bg-nw-blue text-white border-nw-blue'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-              } transition-colors"
-              on:click={() => toggleCharacterSelection(character.id)}
-            >
-              <span class="faction-{character.faction.toLowerCase()}">●</span>
-              {character.name}
-              <span class="text-xs opacity-75">({character.server_name})</span>
-            </button>
-          {/each}
+          {#if eventsLoading}
+            <div class="px-3 py-1 text-sm rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
+              Loading...
+            </div>
+          {:else if upcomingEvents.length === 0}
+            <div class="px-3 py-1 text-sm rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
+              No upcoming events
+            </div>
+          {:else}
+            {#each upcomingEvents as evt}
+              <div class="px-3 py-2 text-sm rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm min-w-[200px]">
+                <div class="font-medium text-gray-900 dark:text-white truncate">{evt.name}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 truncate">{evt.event_type}{#if evt.server_name} • {evt.server_name}{/if}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatEventDateTime(evt.event_time)}</div>
+              </div>
+            {/each}
+          {/if}
         </div>
       </div>
     </div>
@@ -130,46 +116,16 @@
         {/if}
       </button>
       
-      <!-- Server Time Displays -->
-      {#if selectedCharacterServers.length > 0}
-        <div class="flex space-x-4">
-          {#each selectedCharacterServers as serverName}
-            <div class="text-right min-w-[120px]">
-              <ServerTimeDisplay 
-                {serverName} 
-                showResetTimers={false} 
-                showServerTime={true} 
-                size="small" 
-              />
-            </div>
-          {/each}
+      <div class="text-sm text-gray-600 dark:text-gray-400">
+        <div class="text-right">
+          <div class="font-medium">Local Time</div>
+          <div class="text-xs">{new Date().toLocaleTimeString()}</div>
         </div>
-      {:else}
-        <div class="text-sm text-gray-600 dark:text-gray-400">
-          <div class="text-right">
-            <div class="font-medium">Local Time</div>
-            <div class="text-xs">{new Date().toLocaleTimeString()}</div>
-          </div>
-        </div>
-      {/if}
+      </div>
     </div>
   </div>
 </header>
 
 <style>
-  .faction-factionless {
-    color: #6b7280; /* gray-500 */
-  }
-  
-  .faction-marauders {
-    color: #dc2626;
-  }
-  
-  .faction-covenant {
-    color: #eab308;
-  }
-  
-  .faction-syndicate {
-    color: #7c3aed;
-  }
+  /* Retain empty style block for potential header-specific styles */
 </style> 

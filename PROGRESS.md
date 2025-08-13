@@ -132,7 +132,7 @@ The New World Planner application is now **100% COMPLETE** and fully production-
 - [x] Responsive design
 - [x] New World themed styling (faction colors, etc.)
 - [x] Character creation/editing modal with validation
-- [x] Real-time character data in header selection
+- [x] Header updated to show next three upcoming events with automatic refresh
 - [x] **Clean build output with resolved accessibility warnings** *(NEW)*
 - [x] Interactive task completion checkboxes
 - [x] Character status toggles (active/inactive)
@@ -226,7 +226,7 @@ nw_planner/
 │   └── utils.js                ✅ Development utilities
 ├── src/
 │   ├── components/
-│   │   ├── Header.svelte       ✅ **COMPLETE**: Real character data & server time
+│   │   ├── Header.svelte       ✅ **UPDATED**: Shows next three upcoming events with auto-refresh
 │   │   ├── Sidebar.svelte      ✅ Complete navigation
 │   │   ├── CharacterModal.svelte ✅ **COMPLETE**: CRUD modal with validation
 │   │   ├── EventModal.svelte   ✅ Complete event creation/editing modal
