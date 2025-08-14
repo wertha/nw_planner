@@ -48,21 +48,7 @@
     'Absent'
   ]
   
-  // Server list (from New World servers)
-  const servers = [
-    'Camelot',
-    'Valhalla',
-    'Hellheim',
-    'Asgard',
-    'Midgard',
-    'Jotunheim',
-    'Alfheim',
-    'Niflheim',
-    'Muspelheim',
-    'Utgard',
-    'Bifrost',
-    'Yggdrasil'
-  ]
+  // Server list is inferred from the selected character; no explicit server dropdown needed
   
   // Reactive statements
   $: if (show && editingEvent) {
@@ -315,9 +301,8 @@
           {/if}
         </div>
         
-        <!-- Character and Server -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+        <!-- Character (server inferred) -->
+        <div>
             <label for="character_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Character *
             </label>
@@ -337,23 +322,6 @@
             {#if errors.character_id}
               <p class="mt-1 text-sm text-red-600 dark:text-red-400">{errors.character_id}</p>
             {/if}
-          </div>
-          
-          <div>
-            <label for="server_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Server
-            </label>
-            <select
-              id="server_name"
-              bind:value={formData.server_name}
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-transparent dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">Select server</option>
-              {#each servers as server}
-                <option value={server}>{server}</option>
-              {/each}
-            </select>
-          </div>
         </div>
         
         <!-- Event Time and Participation Status -->

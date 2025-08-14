@@ -228,5 +228,5 @@
       </div>
     {/if}
   {/if}
-  <EventModal show={showModal} editingEvent={editingEvent} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
+  <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
 </div> 

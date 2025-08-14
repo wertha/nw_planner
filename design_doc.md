@@ -882,12 +882,12 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 ### 10.6 Event Management Testing
 
 **Test 15: Event Creation**
-- [ ] Navigate to Events page
-- [ ] Click "Create Event" button
-- [ ] Test event name input
-- [ ] Test event type selection (War, Invasion, Company Event)
-- [ ] Test date/time selection
-- [ ] Test server selection
+- [x] Navigate to Events page
+- [x] Click "Create Event" button
+- [x] Test event name input
+- [x] Test event type selection (War, Invasion, Company Event)
+- [x] Test date/time selection
+- [x] Test server selection
 - [ ] Test character selection
 - [ ] Test description input
 - [ ] Test RSVP status selection
