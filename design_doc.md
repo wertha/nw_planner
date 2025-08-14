@@ -703,6 +703,33 @@ Daily:
 These defaults are inserted idempotently on startup or via "Import Defaults" if missing.
 
 
+### 9.5 Timezone & Reset Behaviour (UPDATED)
+Daily/weekly resets must follow each character’s server timezone (05:00 daily; Tuesday 05:00 weekly). Countdown timers and period tokens must be derived from server time, not local time.
+
+#### 9.5.1 Principles
+- Compute server-local reset instants, then convert to an absolute instant (UTC) before doing any subtraction.
+- A single source of truth for server → IANA timezone and reset boundary logic; avoid duplicating logic across services.
+- Format period tokens (daily `YYYY-MM-DD`, weekly `YYYY-Www`) from server-local time only.
+
+#### 9.5.2 Shared helpers (to live in timezone service)
+- `getServerNowParts(serverName)` → extract server-local components via `Intl.DateTimeFormat(..., { timeZone })` + `formatToParts`.
+- `getNextResetUTC(serverName, type)` → compute the next daily (05:00) or weekly (Tuesday 05:00) in server-local components, then materialize as a UTC `Date` representing that instant.
+- `getServerPeriodToken(serverName, type)` → produce the current daily/weekly token from server-local time.
+
+#### 9.5.3 Service responsibilities
+- Reset timers (dashboard): use `getNextResetUTC` and compute `deltaMs = nextResetUTC.getTime() - Date.now()`; never mix server-local `Date` and local `Date` in subtraction.
+- Task service (periods): reuse the same boundary logic to compute period tokens per character’s server timezone; keep token generation server-local.
+- Keep a single timezone map; do not copy in multiple files.
+
+#### 9.5.4 Do/Don’t
+- Do: normalize both instants to UTC before subtracting.
+- Do: derive server-local components via `formatToParts` to avoid locale string ambiguity.
+- Don’t: construct `new Date('YYYY-MM-DDTHH:mm:ss')` without timezone and treat it as server time (parses as local time).
+- Don’t: subtract a server-local `Date` from local `new Date()` directly.
+
+#### 9.5.5 Risks & Mitigations
+- Timezone math is error-prone without Temporal; stick to `Intl` + careful normalization. Consider adopting a lightweight library (e.g., `luxon`) if complexity grows.
+
 ## 10. Comprehensive Testing Protocol
 
 ### 10.1 Pre-Test Setup
