@@ -162,22 +162,14 @@ class DatabaseService {
 
     insertDefaultTasks() {
         const defaultTasks = [
-            // Daily tasks
-            { name: 'Daily Faction Missions', description: 'Complete 3 faction missions', type: 'daily', priority: 'High', rewards: 'Faction Tokens, Gold' },
-            { name: 'Territory Standing', description: 'Complete settlement board missions', type: 'daily', priority: 'Medium', rewards: 'Territory Standing' },
-            { name: 'Gypsum Orb Crafting', description: 'Craft daily gypsum orbs', type: 'daily', priority: 'Critical', rewards: 'Expertise Bumps' },
-            { name: 'Daily Gathering', description: 'Complete daily gathering activities', type: 'daily', priority: 'Medium', rewards: 'Resources, XP' },
-            { name: 'Expedition Run', description: 'Complete daily expedition', type: 'daily', priority: 'High', rewards: 'Gear, Umbral Shards' },
-            { name: 'OPR/Arena', description: 'Participate in PvP activities', type: 'daily', priority: 'Medium', rewards: 'Azoth Salt, XP' },
-            { name: 'Elite Chest Run', description: 'Complete elite area chest runs', type: 'daily', priority: 'High', rewards: 'Gear, Resources' },
-            
-            // Weekly tasks
-            { name: 'Weekly Faction Missions', description: 'Complete weekly faction mission', type: 'weekly', priority: 'High', rewards: 'Faction Tokens, Gold' },
-            { name: 'Weekly Expedition', description: 'Complete weekly expedition bonus', type: 'weekly', priority: 'Medium', rewards: 'Extra Rewards' },
-            { name: 'Territory War', description: 'Participate in territory wars', type: 'weekly', priority: 'Critical', rewards: 'Territory Control' },
-            { name: 'Company Activities', description: 'Participate in company events', type: 'weekly', priority: 'Medium', rewards: 'Social, Resources' },
-            { name: 'Weekly Gathering Goals', description: 'Complete weekly gathering objectives', type: 'weekly', priority: 'Low', rewards: 'Resources' },
-            { name: 'Weekly Crafting', description: 'Complete weekly crafting goals', type: 'weekly', priority: 'Low', rewards: 'Crafting XP' }
+            // Weekly
+            { name: 'Mutated Dungeons', description: '', type: 'weekly', priority: 'Medium', rewards: null },
+            { name: 'Hive of Gorgons', description: '', type: 'weekly', priority: 'Medium', rewards: null },
+            { name: 'Trial of the Devourer (Sandworm)', description: '', type: 'weekly', priority: 'Medium', rewards: null },
+            { name: 'FFA Goldcursed Coconut', description: '', type: 'weekly', priority: 'Medium', rewards: null },
+            // Daily
+            { name: 'Faction Bonus Missions', description: '', type: 'daily', priority: 'Medium', rewards: null },
+            { name: 'Gypsum From Faction Vendor', description: '', type: 'daily', priority: 'Medium', rewards: null }
         ]
 
         const checkTask = this.db.prepare('SELECT id FROM tasks WHERE name = ?')

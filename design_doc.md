@@ -694,6 +694,21 @@ getCurrentResetPeriod(type, serverTimezone, now):
 - Add `on:keydown` on the backdrop and `on:keydown|stopPropagation` on the dialog container to prevent escape-key and focus issues.
 - Focus the first input on open to guarantee typing works in create/edit flows.
 
+#### 9.4.10 Default Task Set (UPDATED)
+Seeded default tasks reflect a streamlined checklist commonly used by players (categories and counters omitted):
+```
+Weekly:
+- Mutated Dungeons
+- Hive of Gorgons
+- Trial of the Devourer (Sandworm)
+- FFA Goldcursed Coconut
+
+Daily:
+- Faction Bonus Missions
+- Gypsum From Faction Vendor
+```
+These defaults are inserted idempotently on startup or via "Import Defaults" if missing.
+
 
 ## 10. Comprehensive Testing Protocol
 
