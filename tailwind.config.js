@@ -8,7 +8,8 @@ export default {
         'nw-gold': '#c8aa6e',
         'nw-blue': '#4d79a4',
         'nw-red': '#b91c1c',
-        'marauder': '#dc2626',
+        // Marauders are green in New World
+        'marauder': '#16a34a',
         'covenant': '#eab308',
         'syndicate': '#7c3aed'
       }

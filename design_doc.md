@@ -100,10 +100,8 @@ Calendar Features:
 - Server time zone display for each character
 - Ability to set event times by server time, but display local time
 - Color coding by character/event type
-- Daily/Weekly reset indicators
 - Event conflict detection
 - Drag-and-drop event scheduling
-- Quick task completion marking
 - Progress tracking visualization
 ```
 
@@ -315,11 +313,8 @@ Layout Structure:
 - Character-specific task summaries
 
 #### 4.2.2 Calendar View
-- Full calendar with all events and tasks
-- Character filter toggles (multi-select) act as the primary character selector (header no longer lists characters)
+- Full calendar with scheduled events
 - Color-coded by character/event type
-- Daily reset markers (5 AM server time)
-- Weekly reset markers (Tuesday at 5 AM server time)
 - Quick event creation with server time input
 - Local time display with server time tooltips
 - Event conflict detection across characters
@@ -660,9 +655,7 @@ initializeDefaultTasks(); // idempotent
 - Dashboard
   - “Today’s Tasks” from selected character(s) with checkboxes
   - Priority labels; completed styling
-- Calendar
-  - Reset markers at daily/weekly boundaries using server time
-  - Optional quick-complete affordances for daily tasks
+ 
 - Notifications (optional)
   - Daily/weekly reset notifications per character; future task reminders
 
@@ -826,30 +819,27 @@ These defaults are inserted idempotently on startup or via "Import Defaults" if 
 - [x] Toggle active/inactive status on multiple characters
 - [x] Verify status changes immediately
 - [x] Verify inactive characters are visually marked
-- [x] Verify Calendar character filters only list active characters
 
 ### 10.5 Task Management Testing
 
 **Test 12: Task View & Navigation**
 - [x] Navigate to Tasks page
-- [ ] Verify default tasks are loaded or importable via "Import Defaults"
-- [ ] Switch tabs/filters to view Daily vs Weekly tasks
-- [ ] Verify priority chips render correctly (Low/Medium/High/Critical)
-- [ ] Verify assignment UI allows selecting characters (per task)
- - [ ] Verify Row 1 horizontal scroll works with mouse wheel (vertical wheel scroll translates to horizontal)
- - [ ] Verify Row 2 renders compact rows with type/priority chips and Edit/Delete actions
+- [x] Verify default tasks are loaded or importable via "Import Defaults"
+- [x] Switch tabs/filters to view Daily vs Weekly tasks
+- [x] Verify priority chips render correctly (Low/Medium/High/Critical)
+- [x] Verify assignment UI allows selecting characters (per task)
+ - [x] Verify Row 1 horizontal scroll works with mouse wheel (vertical wheel scroll translates to horizontal)
+ - [x] Verify Row 2 renders compact rows with type/priority chips and Edit/Delete actions
 
 **Test 13: Task Completion**
-- [ ] Select a character in Calendar filters (header is not used for selection)
-- [ ] Click completion checkbox on a daily task in Dashboard
-- [ ] Verify task is marked as completed (strike-through, chip updates)
+- [x] Click completion checkbox on a daily task in Dashboard
+- [x] Verify task is marked as completed (strike-through, chip updates)
+- [x] Repeat for a weekly task
 - [ ] Verify completion persists on refresh (same reset period)
-- [ ] Repeat for a weekly task
-- [ ] Uncheck to mark incomplete, verify persistence
+- [x] Uncheck to mark incomplete, verify persistence
 
 **Test 14: Multi-Character Task Testing**
-- [ ] Switch between characters using Calendar filters
-- [ ] Verify only tasks assigned to the selected character appear
+- [ ] Verify only tasks assigned to each character appear where appropriate
 - [ ] Complete the same task on two different characters
 - [ ] Verify each character’s completion state is independent
 - [ ] Verify reset period differences across servers with different timezones

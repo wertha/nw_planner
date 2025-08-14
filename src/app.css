@@ -11,6 +11,11 @@ body {
     @apply text-marauder border-marauder;
 }
 
+/* Support pluralized faction value */
+.faction-marauders {
+    @apply text-marauder border-marauder;
+}
+
 .faction-covenant {
     @apply text-covenant border-covenant;
 }

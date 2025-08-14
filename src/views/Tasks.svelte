@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import api from '../services/api.js'
   import TaskModal from '../components/TaskModal.svelte'
+  import BatchAssignModal from '../components/BatchAssignModal.svelte'
   
   let loading = true
   let tasks = []
@@ -14,6 +15,28 @@
   let charactersLoading = true
   let characterTasks = {} // { [characterId]: TaskWithStatus[] }
   let characterRowEl = null
+  
+  // Task Library filter
+  let taskFilter = 'all' // 'all' | 'daily' | 'weekly'
+  $: filteredTasks = taskFilter === 'all' ? tasks : tasks.filter(t => t.type === taskFilter)
+  $: dailyCount = tasks.filter(t => t.type === 'daily').length
+  $: weeklyCount = tasks.filter(t => t.type === 'weekly').length
+  
+  function tabClasses(val) {
+    const active = val === taskFilter
+    const base = 'px-3 py-1 text-sm rounded-md border transition-colors'
+    return active
+      ? base + ' bg-nw-blue text-white border-nw-blue'
+      : base + ' bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+  }
+
+  function smallBtn(variant) {
+    const base = 'px-3 py-1 text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+    if (variant === 'primary') return base + ' text-white bg-nw-blue hover:bg-nw-blue-dark'
+    if (variant === 'secondary') return base + ' text-white bg-gray-600 hover:bg-gray-700'
+    if (variant === 'danger') return base + ' text-white bg-red-600 hover:bg-red-700'
+    return base
+  }
   
   onMount(async () => {
     await Promise.all([loadTasks(), loadCharactersAndTasks()])
@@ -140,6 +163,46 @@
       console.error('Error deleting task:', err)
     }
   }
+
+  // Batch selection & actions
+  let selectedTaskIds = []
+  let showBatchAssign = false
+  
+  function isSelected(taskId) { return selectedTaskIds.includes(taskId) }
+  function clearSelection() { selectedTaskIds = [] }
+  function selectAllVisible() {
+    const ids = filteredTasks.map(t => t.id)
+    const allSelected = ids.length > 0 && ids.every(id => selectedTaskIds.includes(id))
+    selectedTaskIds = allSelected ? [] : ids
+  }
+  
+  async function batchDelete() {
+    if (selectedTaskIds.size === 0) return
+    const confirmed = confirm(`Delete ${selectedTaskIds.size} selected task(s)?`)
+    if (!confirmed) return
+    try {
+      for (const id of selectedTaskIds) {
+        await api.deleteTask(id)
+      }
+      clearSelection()
+      await Promise.all([loadTasks(), loadCharactersAndTasks()])
+    } catch (err) {
+      console.error('Batch delete failed:', err)
+    }
+  }
+  
+  async function handleBatchAssign(characterIds) {
+    try {
+      for (const taskId of selectedTaskIds) {
+        await api.setTaskAssignments(taskId, characterIds)
+      }
+      showBatchAssign = false
+      clearSelection()
+      await Promise.all([loadTasks(), loadCharactersAndTasks()])
+    } catch (err) {
+      console.error('Batch assign failed:', err)
+    }
+  }
 </script>
 
 <div class="max-w-7xl mx-auto min-w-0">
@@ -212,9 +275,26 @@
   <!-- Row 2: Master Task Library (vertical scroll) -->
   <div class="mb-4 flex items-center justify-between">
     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Task Library</h2>
-    <div class="space-x-2">
-      <button class="btn-secondary" on:click={async () => { await api.initializeDefaultTasks(); await Promise.all([loadTasks(), loadCharactersAndTasks()]) }}>Import Defaults</button>
-      <button class="btn-primary" on:click={openCreate}>Add New Task</button>
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-1">
+        <button class={tabClasses('all')} on:click={() => taskFilter = 'all'}>All ({tasks.length})</button>
+        <button class={tabClasses('daily')} on:click={() => taskFilter = 'daily'}>Daily ({dailyCount})</button>
+        <button class={tabClasses('weekly')} on:click={() => taskFilter = 'weekly'}>Weekly ({weeklyCount})</button>
+      </div>
+      <div class="space-x-2">
+        <button class={smallBtn('secondary')} on:click={async () => { await api.initializeDefaultTasks(); await Promise.all([loadTasks(), loadCharactersAndTasks()]) }}>Import Defaults</button>
+        <button class={smallBtn('primary')} on:click={openCreate}>Add New Task</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-3 rounded-md border border-blue-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-800/60 px-3 py-2 flex items-center justify-between">
+    <div class="text-xs text-blue-900 dark:text-gray-200 font-medium">Selected: {selectedTaskIds.length} / {filteredTasks.length}</div>
+    <div class="flex items-center gap-2">
+      <button class={smallBtn('secondary')} on:click={() => { if (selectedTaskIds.length>0) showBatchAssign = true }} disabled={selectedTaskIds.length === 0}>Assign to Characters</button>
+      <button class={smallBtn('danger')} on:click={batchDelete} disabled={selectedTaskIds.length === 0}>Delete Selected</button>
+      <button class="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600" on:click={clearSelection} disabled={selectedTaskIds.length === 0}>Clear</button>
+      <button class="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600" on:click={selectAllVisible} disabled={filteredTasks.length === 0}>Select All</button>
     </div>
   </div>
 
@@ -231,12 +311,15 @@
     </div>
   {:else}
     <div class="max-h-[60vh] overflow-y-auto space-y-2">
-      {#if tasks.length === 0}
+      {#if filteredTasks.length === 0}
         <div class="text-center text-gray-600 dark:text-gray-400 py-8">No tasks found.</div>
       {:else}
-        {#each tasks as task}
+        {#each filteredTasks as task}
           <div class="border border-gray-200 dark:border-gray-700 rounded px-3 py-2 flex items-center justify-between">
-            <div class="min-w-0">
+            <div class="flex items-center gap-3">
+              <input type="checkbox" bind:group={selectedTaskIds} value={task.id} class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:bg-gray-700 dark:border-gray-600" />
+            </div>
+            <div class="min-w-0 flex-1 ml-2">
               <div class="flex items-center gap-2">
                 <h3 class="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[32rem]">{task.name}</h3>
                 <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{task.type}</span>
@@ -257,4 +340,5 @@
   {/if}
 
   <TaskModal isOpen={showModal} task={editingTask} on:save={handleSave} on:delete={handleDelete} on:close={() => { showModal = false; editingTask = null }} />
+  <BatchAssignModal isOpen={showBatchAssign} selectedTaskCount={selectedTaskIds.length} on:assign={(e) => handleBatchAssign(e.detail)} on:close={() => { showBatchAssign = false }} />
 </div> 
