@@ -8,59 +8,17 @@ class ResetTimerService {
 
     // Calculate time until next daily reset (5 AM server time)
     getTimeUntilDailyReset(serverName) {
-        const serverTimezone = TimeZoneService.serverTimeZones[serverName]
-        if (!serverTimezone) {
-            throw new Error(`Unknown server: ${serverName}`)
-        }
-
+        const nextResetUTC = TimeZoneService.getNextResetUTC(serverName, 'daily')
         const now = new Date()
-        const serverTime = this.getServerTime(serverName, now)
-        
-        // Create next 5 AM server time
-        let nextReset = new Date(serverTime)
-        nextReset.setHours(5, 0, 0, 0)
-        
-        // If it's already past 5 AM today, move to tomorrow
-        if (serverTime >= nextReset) {
-            nextReset.setDate(nextReset.getDate() + 1)
-        }
-        
-        // Convert back to local time for calculation
-        const nextResetLocal = this.convertFromServerTime(serverName, nextReset)
-        const timeDiff = nextResetLocal.getTime() - now.getTime()
-        
+        const timeDiff = nextResetUTC.getTime() - now.getTime()
         return this.formatTimeRemaining(timeDiff)
     }
 
     // Calculate time until next weekly reset (Tuesday 5 AM server time)
     getTimeUntilWeeklyReset(serverName) {
-        const serverTimezone = TimeZoneService.serverTimeZones[serverName]
-        if (!serverTimezone) {
-            throw new Error(`Unknown server: ${serverName}`)
-        }
-
+        const nextResetUTC = TimeZoneService.getNextResetUTC(serverName, 'weekly')
         const now = new Date()
-        const serverTime = this.getServerTime(serverName, now)
-        
-        // Create next Tuesday 5 AM server time
-        let nextReset = new Date(serverTime)
-        nextReset.setHours(5, 0, 0, 0)
-        
-        // Calculate days until Tuesday (0=Sunday, 1=Monday, 2=Tuesday...)
-        const currentDay = nextReset.getDay()
-        let daysUntilTuesday = (2 - currentDay + 7) % 7
-        
-        // If today is Tuesday but it's already past 5 AM, move to next Tuesday
-        if (currentDay === 2 && serverTime >= nextReset) {
-            daysUntilTuesday = 7
-        }
-        
-        nextReset.setDate(nextReset.getDate() + daysUntilTuesday)
-        
-        // Convert back to local time for calculation
-        const nextResetLocal = this.convertFromServerTime(serverName, nextReset)
-        const timeDiff = nextResetLocal.getTime() - now.getTime()
-        
+        const timeDiff = nextResetUTC.getTime() - now.getTime()
         return this.formatTimeRemaining(timeDiff)
     }
 

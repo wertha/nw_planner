@@ -129,7 +129,8 @@ class TimeZoneService {
     }
 
     static getTimeUntilReset(serverName, resetType) {
-        const nextReset = this.getNextResetTime(serverName, resetType)
+        // Normalize to UTC instant subtraction for reliable countdowns
+        const nextReset = this.getNextResetUTC(serverName, resetType)
         const now = new Date()
         const timeDiff = nextReset.getTime() - now.getTime()
         
@@ -158,6 +159,72 @@ class TimeZoneService {
         }
         
         return format(serverTime, 'yyyy-MM-dd')
+    }
+
+    // ===== New consolidated helpers =====
+    static getServerNowParts(serverName, referenceDate = new Date()) {
+        const timezone = this.serverTimeZones[serverName]
+        const dtf = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone || 'UTC',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = dtf.formatToParts(referenceDate)
+        const pick = (t) => parts.find(p => p.type === t).value
+        return {
+            y: parseInt(pick('year'), 10),
+            m: parseInt(pick('month'), 10),
+            d: parseInt(pick('day'), 10),
+            H: parseInt(pick('hour'), 10),
+            M: parseInt(pick('minute'), 10),
+            S: parseInt(pick('second'), 10)
+        }
+    }
+
+    static toUTCFromZoned(serverName, y, m, d, H = 0, M = 0, S = 0) {
+        // Build a local Date from the server-local wall clock components,
+        // then adjust by the timezone offset at that moment to obtain the UTC instant.
+        const pad = (n) => String(n).padStart(2, '0')
+        const localCandidate = new Date(`${y}-${pad(m)}-${pad(d)}T${pad(H)}:${pad(M)}:${pad(S)}`)
+        const timezone = this.serverTimeZones[serverName]
+        if (!timezone) return localCandidate
+        const sameInstantInTz = new Date(localCandidate.toLocaleString('en-US', { timeZone: timezone }))
+        const offsetMs = localCandidate.getTime() - sameInstantInTz.getTime()
+        return new Date(localCandidate.getTime() - offsetMs)
+    }
+
+    static getNextResetUTC(serverName, resetType) {
+        const now = new Date()
+        const { y, m, d, H } = this.getServerNowParts(serverName, now)
+        // Candidate reset in server-local components
+        let candY = y, candM = m, candD = d, candH = 5, candMin = 0, candS = 0
+        if (resetType === 'weekly') {
+            // Find next Tuesday date relative to server-local day
+            const tz = this.serverTimeZones[serverName] || 'UTC'
+            // Build a server-local "now" Date in UTC for weekday calculation
+            const serverNowUTC = this.toUTCFromZoned(serverName, y, m, d, H)
+            const serverWeekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(serverNowUTC)
+            // Map weekday string to number (0=Sun..6=Sat)
+            const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+            const dayNum = map[serverWeekday]
+            const daysUntilTue = dayNum === 2 ? 0 : (2 - dayNum + 7) % 7
+            // Add daysUntilTue to (y,m,d)
+            const tempUTC = this.toUTCFromZoned(serverName, y, m, d + daysUntilTue, 5, 0, 0)
+            let candidateUTC = tempUTC
+            // If it's Tuesday but past 05:00 server time, move a week forward
+            const nowUTC = now
+            if (candidateUTC.getTime() <= nowUTC.getTime()) {
+                candidateUTC = new Date(candidateUTC.getTime() + 7 * 86400000)
+            }
+            return candidateUTC
+        }
+        // Daily case
+        let candidateUTC = this.toUTCFromZoned(serverName, candY, candM, candD, candH, candMin, candS)
+        if (candidateUTC.getTime() <= now.getTime()) {
+            // move to next day 05:00 server time
+            candidateUTC = this.toUTCFromZoned(serverName, candY, candM, candD + 1, candH, candMin, candS)
+        }
+        return candidateUTC
     }
 
     static getWeekNumber(date) {
