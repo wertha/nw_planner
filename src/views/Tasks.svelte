@@ -1,10 +1,13 @@
 <script>
   import { onMount } from 'svelte'
   import api from '../services/api.js'
+  import TaskModal from '../components/TaskModal.svelte'
   
   let loading = true
   let tasks = []
   let error = null
+  let showModal = false
+  let editingTask = null
   
   onMount(async () => {
     await loadTasks()
@@ -20,6 +23,54 @@
       error = 'Failed to load tasks. Please try again.'
     } finally {
       loading = false
+    }
+  }
+
+  function openCreate() {
+    editingTask = null
+    showModal = true
+  }
+
+  function openEdit(task) {
+    editingTask = task
+    showModal = true
+  }
+
+  async function handleSave(event) {
+    const data = event.detail
+    try {
+      if (editingTask) {
+        // Update task then assignments
+        const { assignments, ...taskData } = data
+        const updated = await api.updateTask(editingTask.id, taskData)
+        if (assignments) {
+          await api.setTaskAssignments(editingTask.id, assignments)
+        }
+      } else {
+        // Create task then assignments
+        const { assignments, ...taskData } = data
+        const created = await api.createTask(taskData)
+        if (created?.id && assignments) {
+          await api.setTaskAssignments(created.id, assignments)
+        }
+      }
+      showModal = false
+      editingTask = null
+      await loadTasks()
+    } catch (err) {
+      console.error('Error saving task:', err)
+    }
+  }
+
+  async function handleDelete(event) {
+    const id = event.detail
+    try {
+      await api.deleteTask(id)
+      showModal = false
+      editingTask = null
+      await loadTasks()
+    } catch (err) {
+      console.error('Error deleting task:', err)
     }
   }
 </script>
@@ -50,10 +101,14 @@
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Get started by creating your first task or importing the default New World tasks.
       </p>
+      <div class="mt-4 space-x-2">
+        <button class="btn-primary" on:click={openCreate}>Create Task</button>
+        <button class="btn-secondary" on:click={async () => { await api.initializeDefaultTasks(); await loadTasks() }}>Import Defaults</button>
+      </div>
     </div>
   {:else}
     <div class="mb-6">
-      <button class="btn-primary">Add New Task</button>
+      <button class="btn-primary" on:click={openCreate}>Add New Task</button>
     </div>
     
     <div class="space-y-4">
@@ -72,11 +127,13 @@
             <div class="flex items-center space-x-4">
               <span class="text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">{task.type}</span>
               <span class="text-sm priority-{task.priority.toLowerCase()}">{task.priority}</span>
-              <button class="btn-secondary text-sm">Edit</button>
+              <button class="btn-secondary text-sm" on:click={() => openEdit(task)}>Edit</button>
             </div>
           </div>
         </div>
       {/each}
     </div>
   {/if}
+
+  <TaskModal isOpen={showModal} task={editingTask} on:save={handleSave} on:delete={handleDelete} on:close={() => { showModal = false; editingTask = null }} />
 </div> 

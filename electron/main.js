@@ -31,8 +31,17 @@ async function initializeServices() {
     // Initialize the database
     await database.init(app.getPath('userData'))
     
-    // Initialize default servers if needed
-    await serverService.initializeDefaultServers()
+
+		// Initialize default servers if needed
+		await serverService.initializeDefaultServers()
+
+		// Initialize default tasks if none exist
+		try {
+			// This is idempotent; only inserts when a task name is missing
+			database.insertDefaultTasks()
+		} catch (error) {
+			console.warn('Default task initialization skipped:', error)
+		}
     
     // Ensure other services are initialized
     await characterService.ensureInitialized()
@@ -165,6 +174,22 @@ function setupIpcHandlers() {
         return await taskService.removeTaskAssignment(taskId, characterId)
     })
     
+    ipcMain.handle('task:assignToCharacters', async (event, taskId, characterIds) => {
+        return await taskService.assignTaskToCharacters(taskId, characterIds)
+    })
+    
+    ipcMain.handle('task:assignTasksToCharacter', async (event, taskIds, characterId) => {
+        return await taskService.assignTasksToCharacter(taskIds, characterId)
+    })
+    
+    ipcMain.handle('task:setTaskAssignments', async (event, taskId, characterIds) => {
+        return await taskService.setTaskAssignments(taskId, characterIds)
+    })
+    
+    ipcMain.handle('task:getAssignedCharactersForTask', async (event, taskId) => {
+        return await taskService.getAssignedCharactersForTask(taskId)
+    })
+    
     ipcMain.handle('task:getCharacterTasks', async (event, characterId) => {
         return await taskService.getCharacterTasksWithStatus(characterId)
     })
@@ -183,6 +208,17 @@ function setupIpcHandlers() {
     
     ipcMain.handle('task:getStats', async () => {
         return await taskService.getTaskStats()
+    })
+    
+    // Task defaults initialization (manual trigger)
+    ipcMain.handle('task:initializeDefaults', async () => {
+        try {
+            database.insertDefaultTasks()
+            return true
+        } catch (error) {
+            console.error('Failed to initialize default tasks:', error)
+            return false
+        }
     })
     
     // Event operations

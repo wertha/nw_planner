@@ -28,6 +28,7 @@ class TaskService {
             getTaskById: await this.db.prepare('SELECT * FROM tasks WHERE id = ?'),
             getAllTasks: await this.db.prepare('SELECT * FROM tasks ORDER BY priority DESC, name ASC'),
             getTasksByType: await this.db.prepare('SELECT * FROM tasks WHERE type = ? ORDER BY priority DESC, name ASC'),
+            getTaskTypeById: await this.db.prepare('SELECT id, type FROM tasks WHERE id = ?'),
             
             // Task assignments
             assignTaskToCharacter: await this.db.prepare(`
@@ -35,6 +36,8 @@ class TaskService {
                 VALUES (?, ?)
             `),
             removeTaskAssignment: await this.db.prepare('DELETE FROM task_assignments WHERE task_id = ? AND character_id = ?'),
+            deleteAssignmentsForTask: await this.db.prepare('DELETE FROM task_assignments WHERE task_id = ?'),
+            getAssignedCharactersForTask: await this.db.prepare('SELECT character_id FROM task_assignments WHERE task_id = ?'),
             getTaskAssignments: await this.db.prepare(`
                 SELECT ta.*, t.name as task_name, t.type, t.priority, c.name as character_name
                 FROM task_assignments ta
@@ -49,6 +52,7 @@ class TaskService {
                 WHERE ta.character_id = ?
                 ORDER BY t.priority DESC, t.name ASC
             `),
+            getCharacterTimezone: await this.db.prepare('SELECT server_timezone FROM characters WHERE id = ?'),
             
             // Task completions
             markTaskComplete: await this.db.prepare(`
@@ -200,6 +204,50 @@ class TaskService {
         return result.changes > 0
     }
 
+    async assignTaskToCharacters(taskId, characterIds) {
+        await this.ensureInitialized()
+        const runInsert = this.statements.assignTaskToCharacter
+        const tx = this.db.db.transaction((ids) => {
+            for (const characterId of ids) {
+                runInsert.run(taskId, characterId)
+            }
+        })
+        tx(characterIds)
+        return true
+    }
+
+    async assignTasksToCharacter(taskIds, characterId) {
+        await this.ensureInitialized()
+        const runInsert = this.statements.assignTaskToCharacter
+        const tx = this.db.db.transaction((ids) => {
+            for (const taskId of ids) {
+                runInsert.run(taskId, characterId)
+            }
+        })
+        tx(taskIds)
+        return true
+    }
+
+    async setTaskAssignments(taskId, characterIds) {
+        await this.ensureInitialized()
+        const deleteAll = this.statements.deleteAssignmentsForTask
+        const insert = this.statements.assignTaskToCharacter
+        const tx = this.db.db.transaction((ids) => {
+            deleteAll.run(taskId)
+            for (const characterId of ids) {
+                insert.run(taskId, characterId)
+            }
+        })
+        tx(characterIds)
+        return true
+    }
+
+    async getAssignedCharactersForTask(taskId) {
+        await this.ensureInitialized()
+        const rows = this.statements.getAssignedCharactersForTask.all(taskId)
+        return rows.map(r => r.character_id)
+    }
+
     async getTaskAssignments() {
         await this.ensureInitialized()
         
@@ -217,7 +265,8 @@ class TaskService {
         await this.ensureInitialized()
         
         if (!resetPeriod) {
-            resetPeriod = this.getCurrentResetPeriod('daily') // Default to daily
+            const taskType = this.getTaskType(taskId)
+            resetPeriod = this.getResetPeriodForCharacter(characterId, taskType)
         }
         
         const result = this.statements.markTaskComplete.run(
@@ -230,7 +279,8 @@ class TaskService {
         await this.ensureInitialized()
         
         if (!resetPeriod) {
-            resetPeriod = this.getCurrentResetPeriod('daily') // Default to daily
+            const taskType = this.getTaskType(taskId)
+            resetPeriod = this.getResetPeriodForCharacter(characterId, taskType)
         }
         
         const result = this.statements.markTaskIncomplete.run(taskId, characterId, resetPeriod)
@@ -241,7 +291,8 @@ class TaskService {
         await this.ensureInitialized()
         
         if (!resetPeriod) {
-            resetPeriod = this.getCurrentResetPeriod('daily') // Default to daily
+            const taskType = this.getTaskType(taskId)
+            resetPeriod = this.getResetPeriodForCharacter(characterId, taskType)
         }
         
         const result = this.statements.isTaskComplete.get(taskId, characterId, resetPeriod)
@@ -286,18 +337,84 @@ class TaskService {
     }
 
     // Helper methods
-    getCurrentResetPeriod(type) {
-        const now = new Date()
-        
-        if (type === 'daily') {
-            return now.toISOString().split('T')[0] // YYYY-MM-DD format
-        } else if (type === 'weekly') {
-            const year = now.getFullYear()
-            const weekNumber = this.getWeekNumber(now)
+    getTaskType(taskId) {
+        const row = this.statements.getTaskTypeById.get(taskId)
+        return row?.type || 'daily'
+    }
+
+    getResetPeriodForCharacter(characterId, taskType) {
+        const tzRow = this.statements.getCharacterTimezone.get(characterId)
+        const serverTimezone = tzRow?.server_timezone
+        if (!serverTimezone) {
+            // Fallback to local
+            return this.getLocalResetPeriod(taskType)
+        }
+        const serverNow = this.getTimeInTimezone(serverTimezone)
+        if (taskType === 'weekly') {
+            const weekStart = this.getTuesdayFiveAMOfWeek(serverNow)
+            const effective = serverNow >= weekStart ? serverNow : this.addDays(weekStart, -7)
+            const year = effective.getFullYear()
+            const weekNumber = this.getWeekNumber(effective)
             return `${year}-W${weekNumber.toString().padStart(2, '0')}`
         }
-        
-        return now.toISOString().split('T')[0]
+        // daily
+        const dailyBoundary = this.setTime(serverNow, 5, 0, 0, 0)
+        const effective = serverNow >= dailyBoundary ? serverNow : this.addDays(serverNow, -1)
+        return effective.toISOString().split('T')[0]
+    }
+
+    getLocalResetPeriod(taskType) {
+        const now = new Date()
+        if (taskType === 'weekly') {
+            const weekStart = this.getTuesdayFiveAMOfWeek(now)
+            const effective = now >= weekStart ? now : this.addDays(weekStart, -7)
+            const year = effective.getFullYear()
+            const weekNumber = this.getWeekNumber(effective)
+            return `${year}-W${weekNumber.toString().padStart(2, '0')}`
+        }
+        const boundary = this.setTime(now, 5, 0, 0, 0)
+        const effective = now >= boundary ? now : this.addDays(now, -1)
+        return effective.toISOString().split('T')[0]
+    }
+
+    getTimeInTimezone(timezone, baseDate = new Date()) {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = formatter.formatToParts(baseDate)
+        const y = parts.find(p => p.type === 'year').value
+        const m = parts.find(p => p.type === 'month').value
+        const d = parts.find(p => p.type === 'day').value
+        const hh = parts.find(p => p.type === 'hour').value
+        const mm = parts.find(p => p.type === 'minute').value
+        const ss = parts.find(p => p.type === 'second').value
+        return new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}`)
+    }
+
+    setTime(date, hours, minutes, seconds, ms) {
+        const d = new Date(date)
+        d.setHours(hours, minutes, seconds, ms)
+        return d
+    }
+
+    addDays(date, days) {
+        const d = new Date(date)
+        d.setDate(d.getDate() + days)
+        return d
+    }
+
+    getTuesdayFiveAMOfWeek(date) {
+        const d = new Date(date)
+        // Set to 5:00 AM same date first
+        d.setHours(5, 0, 0, 0)
+        // 0=Sun..6=Sat, we want Tuesday (2)
+        const currentDay = d.getDay()
+        const deltaToTuesday = (currentDay - 2 + 7) % 7
+        const tuesday = new Date(d)
+        tuesday.setDate(d.getDate() - deltaToTuesday)
+        return tuesday
     }
 
     getWeekNumber(date) {
@@ -311,8 +428,8 @@ class TaskService {
         await this.ensureInitialized()
         
         const tasks = await this.getCharacterTasks(characterId)
-        const dailyResetPeriod = this.getCurrentResetPeriod('daily')
-        const weeklyResetPeriod = this.getCurrentResetPeriod('weekly')
+        const dailyResetPeriod = this.getResetPeriodForCharacter(characterId, 'daily')
+        const weeklyResetPeriod = this.getResetPeriodForCharacter(characterId, 'weekly')
         
         return tasks.map(task => {
             const resetPeriod = task.type === 'weekly' ? weeklyResetPeriod : dailyResetPeriod

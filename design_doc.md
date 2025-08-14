@@ -592,6 +592,101 @@ console.log('Database initialization status:',
 
 ---
 
+### 9.4 Task System Rework (UPDATED)
+The Task system must deliver per-character, server-time-aware daily/weekly workflows. This section updates the design and test plan to ensure the implementation fully achieves that purpose.
+
+#### 9.4.1 Objectives
+- Per-character visibility via explicit assignment (with bulk helpers)
+- Accurate completion tracking by reset period using each character’s server timezone
+- Fast CRUD with priorities; scalable list UX
+- Clear reset behavior and streak semantics
+
+#### 9.4.2 Data Model (compatible with current schema)
+- Keep existing tables: `tasks`, `task_assignments`, `task_completions`
+- Optional non-breaking columns (future):
+  - `tasks.is_default BOOLEAN DEFAULT 0`
+  - `tasks.archived BOOLEAN DEFAULT 0`
+- Optional index: `CREATE INDEX IF NOT EXISTS idx_tasks_type ON tasks(type);`
+
+#### 9.4.3 Business Rules
+- Only assigned tasks are shown for a character in Dashboard/Calendar
+- Completion requires an assignment and records into the active reset period
+- Reset periods are computed per character from their server IANA timezone:
+  - Daily: boundary at 05:00 server time; token `YYYY-MM-DD`
+  - Weekly: boundary Tuesday 05:00 server time; token `YYYY-Www`
+- DST handled by Intl; no hardcoded offsets
+- Streak increments when a new period is completed; removing a completion only affects that period
+
+#### 9.4.4 API Contracts (Renderer → IPC → Service)
+Task CRUD
+```
+createTask({ name, description?, type: 'daily'|'weekly', priority: 'Low'|'Medium'|'High'|'Critical', rewards? })
+getTasks(); getTasksByType(type); getTaskById(id);
+updateTask(id, partialTask); deleteTask(id);
+```
+Assignment
+```
+assignTaskToCharacter(taskId, characterId);
+removeTaskAssignment(taskId, characterId);
+getCharacterTasks(characterId); // defs only
+getCharacterTasksWithStatus(characterId); // defs + {completed, resetPeriod}
+// Bulk helpers (add)
+assignTaskToCharacters(taskId, characterIds[]);
+assignTasksToCharacter(taskIds[], characterId);
+```
+Completion
+```
+markTaskComplete(taskId, characterId, resetPeriod?);
+markTaskIncomplete(taskId, characterId, resetPeriod?);
+isTaskComplete(taskId, characterId, resetPeriod?);
+getTaskCompletions(resetPeriod?);
+getCharacterCompletions(characterId, resetPeriod?);
+```
+Statistics and Defaults
+```
+getTaskStats(); getCompletionStats(resetPeriod?);
+initializeDefaultTasks(); // idempotent
+```
+
+#### 9.4.5 UI/UX Plan
+- Tasks View
+  - Tabs: Daily | Weekly; search + priority filters
+  - Actions: Create, Edit, Delete, Import Defaults
+  - Assignment manager: pick characters to assign/unassign; bulk helpers
+  - Priority chips; compact list for scale
+- Dashboard
+  - “Today’s Tasks” from selected character(s) with checkboxes
+  - Priority labels; completed styling
+- Calendar
+  - Reset markers at daily/weekly boundaries using server time
+  - Optional quick-complete affordances for daily tasks
+- Notifications (optional)
+  - Daily/weekly reset notifications per character; future task reminders
+
+#### 9.4.6 Reset Period Algorithm (reference)
+```
+getCurrentResetPeriod(type, serverTimezone, now):
+  nowServer = convert(now, serverTimezone)
+  if type == 'daily':
+    boundary = setTime(nowServer, 05:00)
+    effective = nowServer if nowServer >= boundary else nowServer - 1 day
+    return format(effective, 'YYYY-MM-DD')
+  if type == 'weekly':
+    boundary = nextOrCurrentTuesdayAt05(nowServer)
+    effective = nowServer if nowServer >= boundary else nowServer - 7 days
+    return formatISOWeek(effective) // 'YYYY-Www'
+```
+
+#### 9.4.7 Import/Export
+- Export/import includes tasks, assignments, completions
+- CSV export for `task_completions` with character, task, reset_period, completed_at, streak_count
+
+#### 9.4.8 Performance & Reliability
+- Prepared statements for CRUD/assignment/completion
+- Index coverage for frequent queries; add as needed
+- Virtualized lists when task count grows (future)
+
+
 ## 10. Comprehensive Testing Protocol
 
 ### 10.1 Pre-Test Setup
@@ -713,25 +808,31 @@ console.log('Database initialization status:',
 ### 10.5 Task Management Testing
 
 **Test 12: Task View & Navigation**
-- [ ] Navigate to Tasks page
-- [ ] Verify default tasks are loaded
-- [ ] Check task categories (daily/weekly)
-- [ ] Verify task priority indicators
-- [ ] Check task completion checkboxes
+- [x] Navigate to Tasks page
+- [ ] Verify default tasks are loaded or importable via "Import Defaults"
+- [ ] Switch tabs/filters to view Daily vs Weekly tasks
+- [ ] Verify priority chips render correctly (Low/Medium/High/Critical)
+- [ ] Verify assignment UI allows selecting characters (per task)
 
 **Test 13: Task Completion**
-- [ ] Select a character in Calendar filters (header no longer lists characters)
-- [ ] Click completion checkbox on daily task
-- [ ] Verify task is marked as completed
-- [ ] Verify completion persists on page refresh
-- [ ] Test completion on weekly task
-- [ ] Test unchecking completed task
+- [ ] Select a character in Calendar filters (header is not used for selection)
+- [ ] Click completion checkbox on a daily task in Dashboard
+- [ ] Verify task is marked as completed (strike-through, chip updates)
+- [ ] Verify completion persists on refresh (same reset period)
+- [ ] Repeat for a weekly task
+- [ ] Uncheck to mark incomplete, verify persistence
 
 **Test 14: Multi-Character Task Testing**
 - [ ] Switch between characters using Calendar filters
-- [ ] Verify task completion states are character-specific
-- [ ] Complete same task on different characters
-- [ ] Verify each character has independent completion status
+- [ ] Verify only tasks assigned to the selected character appear
+- [ ] Complete the same task on two different characters
+- [ ] Verify each character’s completion state is independent
+- [ ] Verify reset period differences across servers with different timezones
+
+**Test 14.1: Assignment Management**
+- [ ] Assign a task to a character via Tasks view assignment UI
+- [ ] Verify it appears on Dashboard for that character
+- [ ] Remove assignment; verify it disappears from that character’s list
 
 ### 10.6 Event Management Testing
 
@@ -810,9 +911,10 @@ console.log('Database initialization status:',
 
 **Test 24: Reset Behavior**
 - [ ] Wait for or simulate daily reset time (5 AM server time)
-- [ ] Verify completed tasks reset to incomplete
+- [ ] Verify completed tasks reset to incomplete only for the new daily period
 - [ ] Check weekly reset behavior (Tuesday 5 AM server time)
-- [ ] Verify reset timers recalculate correctly
+- [ ] Verify reset timers recalculate correctly per server timezone
+- [ ] Confirm streak increments only when a new period shows completion
 
 ### 10.9 Settings & Preferences Testing
 

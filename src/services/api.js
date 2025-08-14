@@ -356,6 +356,26 @@ class ApiService {
         }
     }
 
+    async initializeDefaultTasks() {
+        await this.init()
+        
+        if (this.isElectron) {
+            return await this.electronAPI.tasks.initializeDefaults()
+        } else {
+            // Seed defaults in web mode localStorage
+            if (this.getMockTasks().length > 0) return true
+            const defaults = [
+                { name: 'Daily Faction Missions', description: 'Complete 3 faction missions', type: 'daily', priority: 'High', rewards: 'Faction Tokens, Gold' },
+                { name: 'Territory Standing', description: 'Complete settlement board missions', type: 'daily', priority: 'Medium', rewards: 'Territory Standing' },
+                { name: 'Gypsum Orb Crafting', description: 'Craft daily gypsum orbs', type: 'daily', priority: 'Critical', rewards: 'Expertise Bumps' },
+                { name: 'Weekly Faction Missions', description: 'Complete weekly faction mission', type: 'weekly', priority: 'High', rewards: 'Faction Tokens, Gold' }
+            ]
+            const withIds = defaults.map((t, idx) => ({ id: Date.now() + idx, ...t }))
+            localStorage.setItem('nw_tasks', JSON.stringify(withIds))
+            return true
+        }
+    }
+
     async getTasksByType(type) {
         await this.init()
         
@@ -386,6 +406,36 @@ class ApiService {
         }
     }
 
+    async updateTask(id, taskData) {
+        await this.init()
+        
+        if (this.isElectron) {
+            return await this.electronAPI.tasks.update(id, taskData)
+        } else {
+            const existing = JSON.parse(localStorage.getItem('nw_tasks') || '[]')
+            const index = existing.findIndex(t => t.id === id)
+            if (index !== -1) {
+                existing[index] = { ...existing[index], ...taskData }
+                localStorage.setItem('nw_tasks', JSON.stringify(existing))
+                return existing[index]
+            }
+            return null
+        }
+    }
+
+    async deleteTask(id) {
+        await this.init()
+        
+        if (this.isElectron) {
+            return await this.electronAPI.tasks.delete(id)
+        } else {
+            const existing = JSON.parse(localStorage.getItem('nw_tasks') || '[]')
+            const filtered = existing.filter(t => t.id !== id)
+            localStorage.setItem('nw_tasks', JSON.stringify(filtered))
+            return true
+        }
+    }
+
     async getCharacterTasks(characterId) {
         await this.init()
         
@@ -408,6 +458,43 @@ class ApiService {
                 }
             })
         }
+    }
+
+    // Assignment helpers
+    async assignTaskToCharacter(taskId, characterId) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.tasks.assignToCharacter(taskId, characterId)
+        return true
+    }
+
+    async removeTaskAssignment(taskId, characterId) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.tasks.removeAssignment(taskId, characterId)
+        return true
+    }
+
+    async assignTaskToCharacters(taskId, characterIds) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.tasks.assignToCharacters(taskId, characterIds)
+        return true
+    }
+
+    async assignTasksToCharacter(taskIds, characterId) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.tasks.assignTasksToCharacter(taskIds, characterId)
+        return true
+    }
+
+    async setTaskAssignments(taskId, characterIds) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.tasks.setTaskAssignments(taskId, characterIds)
+        return true
+    }
+
+    async getAssignedCharactersForTask(taskId) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.tasks.getAssignedCharactersForTask(taskId)
+        return []
     }
 
     async markTaskComplete(taskId, characterId, resetPeriod) {

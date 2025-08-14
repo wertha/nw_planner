@@ -54,7 +54,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         markComplete: (taskId, characterId, resetPeriod) => ipcRenderer.invoke('task:markComplete', taskId, characterId, resetPeriod),
         markIncomplete: (taskId, characterId, resetPeriod) => ipcRenderer.invoke('task:markIncomplete', taskId, characterId, resetPeriod),
         getCompletions: (characterId, resetPeriod) => ipcRenderer.invoke('task:getCompletions', characterId, resetPeriod),
-        getStats: () => ipcRenderer.invoke('task:getStats')
+        getStats: () => ipcRenderer.invoke('task:getStats'),
+        assignToCharacters: (taskId, characterIds) => ipcRenderer.invoke('task:assignToCharacters', taskId, characterIds),
+        assignTasksToCharacter: (taskIds, characterId) => ipcRenderer.invoke('task:assignTasksToCharacter', taskIds, characterId),
+        setTaskAssignments: (taskId, characterIds) => ipcRenderer.invoke('task:setTaskAssignments', taskId, characterIds),
+        getAssignedCharactersForTask: (taskId) => ipcRenderer.invoke('task:getAssignedCharactersForTask', taskId)
+        , initializeDefaults: () => ipcRenderer.invoke('task:initializeDefaults')
     },
     
     // Event operations
