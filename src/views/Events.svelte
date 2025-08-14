@@ -1,12 +1,15 @@
 <script>
   import { onMount } from 'svelte'
   import api from '../services/api.js'
+  import EventModal from '../components/EventModal.svelte'
   
   let loading = true
   let events = []
   let characters = []
   let filterType = 'all'
   let filterCharacter = 'all'
+  let showModal = false
+  let editingEvent = null
   
   onMount(async () => {
     await loadData()
@@ -47,6 +50,30 @@
       } catch (error) {
         console.error('Error deleting event:', error)
       }
+    }
+  }
+
+  function openCreate() {
+    editingEvent = null
+    showModal = true
+  }
+  function openEdit(ev) {
+    editingEvent = ev
+    showModal = true
+  }
+  async function handleSave(e) {
+    const data = e.detail
+    try {
+      if (editingEvent) {
+        await api.updateEvent(editingEvent.id, data)
+      } else {
+        await api.createEvent(data)
+      }
+      showModal = false
+      editingEvent = null
+      await loadData()
+    } catch (err) {
+      console.error('Error saving event:', err)
     }
   }
   
@@ -94,8 +121,8 @@
     <!-- Action Bar -->
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
       <div class="flex space-x-2">
-        <button class="btn-primary">Add New Event</button>
-        <button class="btn-secondary" on:click={() => api.createWarEvent({name: 'New War', event_time: new Date().toISOString()})}>Quick War</button>
+        <button class="btn-primary" on:click={openCreate}>Add New Event</button>
+        <button class="btn-secondary" on:click={async () => { try { await api.createWarEvent({ name: 'War', event_time: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }) ; await loadData() } catch (e) { console.error('Quick War failed', e) } }}>Quick War</button>
       </div>
       
       <!-- Filters -->
@@ -173,7 +200,7 @@
                 
                 <!-- Action Buttons -->
                 <div class="flex space-x-1">
-                  <button class="btn-secondary text-xs px-2 py-1">Edit</button>
+                  <button class="btn-secondary text-xs px-2 py-1" on:click={() => openEdit(event)}>Edit</button>
                   <button 
                     class="btn-danger text-xs px-2 py-1"
                     on:click={() => deleteEvent(event.id)}
@@ -197,8 +224,9 @@
         <p class="text-gray-600 dark:text-gray-400 mb-4">
           {events.length === 0 ? 'You haven\'t created any events yet.' : 'No events match your current filters.'}
         </p>
-        <button class="btn-primary">Create Your First Event</button>
+        <button class="btn-primary" on:click={openCreate}>Create Your First Event</button>
       </div>
     {/if}
   {/if}
+  <EventModal show={showModal} editingEvent={editingEvent} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
 </div> 

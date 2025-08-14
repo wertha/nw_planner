@@ -123,8 +123,8 @@ class EventService {
             participation_status || 'Signed Up',
             location || null,
             recurring_pattern || null,
-            notification_enabled !== undefined ? notification_enabled : true,
-            notification_minutes || 30
+            (notification_enabled !== undefined ? (notification_enabled ? 1 : 0) : 1),
+            (typeof notification_minutes === 'number' ? notification_minutes : 30)
         )
         
         if (result.changes > 0) {
@@ -163,8 +163,8 @@ class EventService {
             participation_status || 'Signed Up',
             location || null,
             recurring_pattern || null,
-            notification_enabled !== undefined ? notification_enabled : true,
-            notification_minutes || 30,
+            (notification_enabled !== undefined ? (notification_enabled ? 1 : 0) : 1),
+            (typeof notification_minutes === 'number' ? notification_minutes : 30),
             id
         )
         

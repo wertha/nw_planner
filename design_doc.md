@@ -866,18 +866,18 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Uncheck to mark incomplete, verify persistence
 
 **Test 14: Multi-Character Task Testing**
-- [ ] Verify only tasks assigned to each character appear where appropriate
-- [ ] Complete the same task on two different characters
-- [ ] Verify each character’s completion state is independent
+- [x] Verify only tasks assigned to each character appear where appropriate
+- [x] Complete the same task on two different characters
+- [x] Verify each character’s completion state is independent
 - [ ] Verify reset period differences across servers with different timezones
 
 **Test 14.1: Assignment Management**
-- [ ] Assign a task to a character via Tasks view assignment UI
+- [x] Assign a task to a character via Tasks view assignment UI
 - [ ] Verify it appears on Dashboard for that character
-- [ ] Remove assignment; verify it disappears from that character’s list
- - [ ] Create a new task; confirm typing works in text inputs and textareas
- - [ ] Edit an existing task; confirm typing works in text inputs and textareas
- - [ ] Confirm Delete in library row removes the task and updates character cards
+- [x] Remove assignment; verify it disappears from that character’s list
+ - [x] Create a new task; confirm typing works in text inputs and textareas
+ - [x] Edit an existing task; confirm typing works in text inputs and textareas
+ - [x] Confirm Delete in library row removes the task and updates character cards
 
 ### 10.6 Event Management Testing
 
