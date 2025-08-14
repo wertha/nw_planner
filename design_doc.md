@@ -654,6 +654,9 @@ initializeDefaultTasks(); // idempotent
   - Actions: Create, Edit, Delete, Import Defaults
   - Assignment manager: pick characters to assign/unassign; bulk helpers
   - Priority chips; compact list for scale
+  - Two-row layout:
+    - Row 1 (horizontal scroll): character cards showing assigned Daily then Weekly tasks with quick-complete checkboxes. Mouse wheel scroll converts to horizontal scroll for usability.
+    - Row 2 (vertical scroll): master Task Library as compact rows with small type/priority chips and Edit/Delete actions.
 - Dashboard
   - “Today’s Tasks” from selected character(s) with checkboxes
   - Priority labels; completed styling
@@ -685,6 +688,11 @@ getCurrentResetPeriod(type, serverTimezone, now):
 - Prepared statements for CRUD/assignment/completion
 - Index coverage for frequent queries; add as needed
 - Virtualized lists when task count grows (future)
+
+#### 9.4.9 Modal Input Reliability (Fix)
+- Ensure all modal textareas are non-self-closing; invalid self-closing tags can prevent typing focus in some contexts.
+- Add `on:keydown` on the backdrop and `on:keydown|stopPropagation` on the dialog container to prevent escape-key and focus issues.
+- Focus the first input on open to guarantee typing works in create/edit flows.
 
 
 ## 10. Comprehensive Testing Protocol
@@ -813,6 +821,8 @@ getCurrentResetPeriod(type, serverTimezone, now):
 - [ ] Switch tabs/filters to view Daily vs Weekly tasks
 - [ ] Verify priority chips render correctly (Low/Medium/High/Critical)
 - [ ] Verify assignment UI allows selecting characters (per task)
+ - [ ] Verify Row 1 horizontal scroll works with mouse wheel (vertical wheel scroll translates to horizontal)
+ - [ ] Verify Row 2 renders compact rows with type/priority chips and Edit/Delete actions
 
 **Test 13: Task Completion**
 - [ ] Select a character in Calendar filters (header is not used for selection)
@@ -833,6 +843,9 @@ getCurrentResetPeriod(type, serverTimezone, now):
 - [ ] Assign a task to a character via Tasks view assignment UI
 - [ ] Verify it appears on Dashboard for that character
 - [ ] Remove assignment; verify it disappears from that character’s list
+ - [ ] Create a new task; confirm typing works in text inputs and textareas
+ - [ ] Edit an existing task; confirm typing works in text inputs and textareas
+ - [ ] Confirm Delete in library row removes the task and updates character cards
 
 ### 10.6 Event Management Testing
 

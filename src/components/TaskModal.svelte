@@ -14,6 +14,7 @@
     priority: 'Medium',
     rewards: ''
   }
+  let nameInputEl
   
   let errors = {}
   let initializedForId = null
@@ -66,6 +67,10 @@
       errors = {}
       initializedForId = currentId
       loadCharactersAndAssignments()
+      // Ensure the name input receives focus upon opening
+      setTimeout(() => {
+        if (nameInputEl) nameInputEl.focus()
+      }, 0)
     }
   }
   
@@ -100,18 +105,24 @@
       dispatch('delete', task.id)
     }
   }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape') {
+      handleClose()
+    }
+  }
 </script>
 
 {#if isOpen}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" role="dialog" aria-modal="true" on:click={handleClose}>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4" role="document" on:click|stopPropagation>
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" role="dialog" aria-modal="true" on:click={handleClose} on:keydown={handleKeydown}>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4" role="document" on:click|stopPropagation on:keydown|stopPropagation>
       <div class="p-6 space-y-4">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{task ? 'Edit Task' : 'Create Task'}</h2>
         
         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
           <div>
             <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Name *</label>
-            <input id="name" type="text" bind:value={formData.name} class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-nw-blue dark:bg-gray-700 dark:text-white" class:border-red-500={errors.name} required />
+            <input id="name" type="text" bind:this={nameInputEl} bind:value={formData.name} class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-nw-blue dark:bg-gray-700 dark:text-white" class:border-red-500={errors.name} required />
             {#if errors.name}
               <p class="mt-1 text-sm text-red-600">{errors.name}</p>
             {/if}
@@ -119,7 +130,7 @@
           
           <div>
             <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-            <textarea id="description" rows="3" bind:value={formData.description} class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-nw-blue dark:bg-gray-700 dark:text-white" />
+            <textarea id="description" rows="3" bind:value={formData.description} class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-nw-blue dark:bg-gray-700 dark:text-white"></textarea>
           </div>
           
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
