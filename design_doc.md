@@ -1142,3 +1142,56 @@ For each test, document:
 ---
 
 *This comprehensive testing protocol ensures every individual interaction in the New World Planner application is thoroughly validated before production release.*
+
+\n
+### 9.6 Timezone & Reset Calculations — Updated Plan (Timezone-First)
+
+Problem statement
+- Current countdowns derive timezone from a hardcoded server-name→timezone map. Any DB server not in that map is treated as unknown, which yields blank/incorrect rows in diagnostics and UI.
+- The wall-clock→UTC conversion currently builds a local Date and attempts to infer timezone offset via `toLocaleString`, which produces wrong instants when the local machine timezone differs from the server timezone and is error-prone around DST.
+
+Design goals
+- Time math must be done relative to an authoritative IANA timezone from the database (e.g., `America/New_York`).
+- Countdown to resets must be DST-safe and consistent across OS timezones.
+- Eliminate reliance on server-name heuristics for time computations.
+
+Key decisions
+- Make timezone the source of truth everywhere (servers carry `servers.timezone`; characters carry `characters.server_timezone`).
+- Use `date-fns-tz` for robust conversions:
+  - `utcToZonedTime(nowUtc, tz)` → server-local wall time
+  - `zonedTimeToUtc(serverLocalDate, tz)` → correct UTC instant for 05:00 server time and for Tue 05:00 server time
+
+API and service changes
+- Add timezone-centric helpers in `src/services/timezone.js`:
+  - `getServerTimeDisplayByTimezone(tz)` → returns `{ time, date, timezone }` for the server-local now
+  - `getNextResetUTCByTimezone(tz, 'daily'|'weekly')` → returns the exact UTC instant for the next reset
+  - `getTimeUntilResetByTimezone(tz, type)` → returns `{ hours, minutes, seconds, totalMs, formatted }`
+- Refactor `src/services/resetTimerService.js` to accept server objects:
+  - `startResetTimerForServer({ name, timezone }, callback)`
+  - `getMultiServerResetInfo(servers)` where each item has `{ name, timezone }`
+  - Name-based wrappers remain for legacy but internally resolve to timezone once.
+- Extend `src/services/api.js`:
+  - `getResetTimers(serversOrNames)` accepts either servers with `name/timezone` or, if names are given, resolves them via DB and then computes.
+  - `startResetTimerForServer(server, callback)` for live updates in the dashboard.
+
+UI updates
+- Dashboard uses server objects (name+timezone) to compute initial timers and start live timers. No name→timezone lookup on the client anymore.
+- A temporary Settings preview was used to validate calculations and has been removed after verification.
+
+Correctness notes
+- Daily reset is computed as the next 05:00 in the server’s local day using `zonedTimeToUtc` (roll forward one day if already past).
+- Weekly reset is computed as the next Tuesday 05:00 in the server’s local calendar; if it’s already past that instant, add 7 days.
+- All countdowns subtract `nowUtc` from the computed UTC instant — no mixing of wall time and UTC, so results are stable regardless of the user’s OS timezone.
+
+Migration & compatibility
+- Keep the legacy name map for display/testing only. All countdown logic uses DB timezones.
+- Where inputs are still arrays of names, resolve them to `{ name, timezone }` via `servers` in the DB before computing.
+- Removed the temporary Settings debug section post-validation.
+
+Testing checklist
+- For a set of servers covering NA/EU/APAC with mixed DST status:
+  - Verify “server time” matches official local time for each server’s timezone.
+  - On different local OS timezones, verify countdown numbers are identical (UTC subtraction only).
+  - Around DST transitions, confirm daily and weekly next-reset UTC instants remain correct and advance monotonically.
+  - On Thursday (local), validate weekly ≈ daily + 96h for most servers; differences allowed where server-local date differs.
+  - Verify Tasks completion periods (daily/weekly) align with countdown reset boundaries for each character’s `server_timezone`.

@@ -48,6 +48,7 @@
     "@fullcalendar/timegrid": "^6.1.0",
     "better-sqlite3": "^9.0.0",
     "date-fns": "^3.0.0",
+    "date-fns-tz": "^2.0.0",
     "electron-store": "^8.1.0"
   },
   "build": {

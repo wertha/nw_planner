@@ -181,50 +181,130 @@ class TimeZoneService {
         }
     }
 
+    // ----- Robust conversion helpers (timezone-first) -----
+    static getZonedNowPartsByTimezone(timezone, referenceDate = new Date()) {
+        const dtf = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone || 'UTC',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = dtf.formatToParts(referenceDate)
+        const pick = (t) => parts.find(p => p.type === t).value
+        return {
+            y: parseInt(pick('year'), 10),
+            m: parseInt(pick('month'), 10),
+            d: parseInt(pick('day'), 10),
+            H: parseInt(pick('hour'), 10),
+            M: parseInt(pick('minute'), 10),
+            S: parseInt(pick('second'), 10)
+        }
+    }
+
+    static tzOffsetAt(timezone, date) {
+        // Compute timezone offset at a given instant using Intl
+        const dtf = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone || 'UTC',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = dtf.formatToParts(date)
+        const pick = (t) => parseInt(parts.find(p => p.type === t).value, 10)
+        const y = pick('year'); const m = pick('month'); const d = pick('day')
+        const H = pick('hour'); const M = pick('minute'); const S = pick('second')
+        const asUTC = Date.UTC(y, m - 1, d, H, M, S)
+        return asUTC - date.getTime()
+    }
+
+    static toUTCFromZonedTimezone(timezone, y, m, d, H = 0, M = 0, S = 0) {
+        // Create a UTC guess for the wall time, then adjust by the zone offset
+        const guess = new Date(Date.UTC(y, m - 1, d, H, M, S))
+        const offsetMs = this.tzOffsetAt(timezone, guess)
+        const utc = new Date(guess.getTime() - offsetMs)
+        // Validation step: if formatting back doesn't match, return nearest match
+        try {
+            const check = new Intl.DateTimeFormat('en-CA', {
+                timeZone: timezone || 'UTC',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            }).formatToParts(utc)
+            const pick = (t) => parseInt(check.find(p => p.type === t).value, 10)
+            if (pick('year') !== y || pick('month') !== m || pick('day') !== d || pick('hour') !== H) {
+                // For non-existent local times (DST forward), nudge by 1 hour
+                return new Date(utc.getTime() + 3600000)
+            }
+        } catch (_) {}
+        return utc
+    }
+
     static toUTCFromZoned(serverName, y, m, d, H = 0, M = 0, S = 0) {
-        // Build a local Date from the server-local wall clock components,
-        // then adjust by the timezone offset at that moment to obtain the UTC instant.
-        const pad = (n) => String(n).padStart(2, '0')
-        const localCandidate = new Date(`${y}-${pad(m)}-${pad(d)}T${pad(H)}:${pad(M)}:${pad(S)}`)
         const timezone = this.serverTimeZones[serverName]
-        if (!timezone) return localCandidate
-        const sameInstantInTz = new Date(localCandidate.toLocaleString('en-US', { timeZone: timezone }))
-        const offsetMs = localCandidate.getTime() - sameInstantInTz.getTime()
-        return new Date(localCandidate.getTime() - offsetMs)
+        if (!timezone) return new Date(Date.UTC(y, m - 1, d, H, M, S))
+        return this.toUTCFromZonedTimezone(timezone, y, m, d, H, M, S)
     }
 
     static getNextResetUTC(serverName, resetType) {
         const now = new Date()
-        const { y, m, d, H } = this.getServerNowParts(serverName, now)
-        // Candidate reset in server-local components
-        let candY = y, candM = m, candD = d, candH = 5, candMin = 0, candS = 0
+        const tz = this.serverTimeZones[serverName] || 'UTC'
+        const { y, m, d, H } = this.getZonedNowPartsByTimezone(tz, now)
         if (resetType === 'weekly') {
-            // Find next Tuesday date relative to server-local day
-            const tz = this.serverTimeZones[serverName] || 'UTC'
-            // Build a server-local "now" Date in UTC for weekday calculation
-            const serverNowUTC = this.toUTCFromZoned(serverName, y, m, d, H)
-            const serverWeekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(serverNowUTC)
-            // Map weekday string to number (0=Sun..6=Sat)
+            const weekdayStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(now)
             const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
-            const dayNum = map[serverWeekday]
+            const dayNum = map[weekdayStr]
             const daysUntilTue = dayNum === 2 ? 0 : (2 - dayNum + 7) % 7
-            // Add daysUntilTue to (y,m,d)
-            const tempUTC = this.toUTCFromZoned(serverName, y, m, d + daysUntilTue, 5, 0, 0)
-            let candidateUTC = tempUTC
-            // If it's Tuesday but past 05:00 server time, move a week forward
-            const nowUTC = now
-            if (candidateUTC.getTime() <= nowUTC.getTime()) {
-                candidateUTC = new Date(candidateUTC.getTime() + 7 * 86400000)
+            let candidateUTC = this.toUTCFromZonedTimezone(tz, y, m, d + daysUntilTue, 5, 0, 0)
+            if (candidateUTC.getTime() <= now.getTime()) {
+                candidateUTC = this.toUTCFromZonedTimezone(tz, y, m, d + daysUntilTue + 7, 5, 0, 0)
             }
             return candidateUTC
         }
-        // Daily case
-        let candidateUTC = this.toUTCFromZoned(serverName, candY, candM, candD, candH, candMin, candS)
+        // Daily
+        let candidateUTC = this.toUTCFromZonedTimezone(tz, y, m, d, 5, 0, 0)
         if (candidateUTC.getTime() <= now.getTime()) {
-            // move to next day 05:00 server time
-            candidateUTC = this.toUTCFromZoned(serverName, candY, candM, candD + 1, candH, candMin, candS)
+            candidateUTC = this.toUTCFromZonedTimezone(tz, y, m, d + 1, 5, 0, 0)
         }
         return candidateUTC
+    }
+
+    // New: timezone-centric APIs
+    static getNextResetUTCByTimezone(timezone, resetType) {
+        const now = new Date()
+        const { y, m, d } = this.getZonedNowPartsByTimezone(timezone, now)
+        if (resetType === 'weekly') {
+            const weekdayStr = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(now)
+            const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+            const dayNum = map[weekdayStr]
+            const daysUntilTue = dayNum === 2 ? 0 : (2 - dayNum + 7) % 7
+            let candidateUTC = this.toUTCFromZonedTimezone(timezone, y, m, d + daysUntilTue, 5, 0, 0)
+            if (candidateUTC.getTime() <= now.getTime()) {
+                candidateUTC = this.toUTCFromZonedTimezone(timezone, y, m, d + daysUntilTue + 7, 5, 0, 0)
+            }
+            return candidateUTC
+        }
+        let candidateUTC = this.toUTCFromZonedTimezone(timezone, y, m, d, 5, 0, 0)
+        if (candidateUTC.getTime() <= now.getTime()) {
+            candidateUTC = this.toUTCFromZonedTimezone(timezone, y, m, d + 1, 5, 0, 0)
+        }
+        return candidateUTC
+    }
+
+    static getTimeUntilResetByTimezone(timezone, resetType) {
+        const nextReset = this.getNextResetUTCByTimezone(timezone, resetType)
+        const now = new Date()
+        const diff = nextReset.getTime() - now.getTime()
+        if (diff <= 0) return { hours: 0, minutes: 0, seconds: 0, totalMs: 0, formatted: '00:00:00' }
+        const totalSeconds = Math.floor(diff / 1000)
+        const hours = Math.floor(totalSeconds / 3600)
+        const minutes = Math.floor((totalSeconds % 3600) / 60)
+        const seconds = totalSeconds % 60
+        const formatted = `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`
+        return { hours, minutes, seconds, totalMs: diff, formatted }
+    }
+
+    static getServerTimeDisplayByTimezone(timezone) {
+        const now = new Date()
+        const dtfTime = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+        const dtfDate = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'short', day: 'numeric' })
+        return { time: dtfTime.format(now), date: dtfDate.format(now), timezone }
     }
 
     static getWeekNumber(date) {

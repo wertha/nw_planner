@@ -26,25 +26,22 @@ class ResetTimerService {
     getServerTime(serverName, localTime = new Date()) {
         const serverTimezone = TimeZoneService.serverTimeZones[serverName]
         if (!serverTimezone) {
-            throw new Error(`Unknown server: ${serverName}`)
+            // fallback: return local time (used only by legacy name callers)
+            return localTime
         }
-
-        // Create a new date in the server's timezone
         const formatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: serverTimezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
         })
-
         const parts = formatter.formatToParts(localTime)
-        const serverTimeStr = `${parts.find(p => p.type === 'year').value}-${parts.find(p => p.type === 'month').value}-${parts.find(p => p.type === 'day').value}T${parts.find(p => p.type === 'hour').value}:${parts.find(p => p.type === 'minute').value}:${parts.find(p => p.type === 'second').value}`
-        
-        return new Date(serverTimeStr)
+        const y = parts.find(p => p.type === 'year').value
+        const m = parts.find(p => p.type === 'month').value
+        const d = parts.find(p => p.type === 'day').value
+        const hh = parts.find(p => p.type === 'hour').value
+        const mm = parts.find(p => p.type === 'minute').value
+        const ss = parts.find(p => p.type === 'second').value
+        return new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}`)
     }
 
     // Convert server time back to local time
@@ -81,20 +78,11 @@ class ResetTimerService {
 
     // Get formatted server time display
     getServerTimeDisplay(serverName) {
-        const serverTime = this.getServerTime(serverName)
-        return {
-            time: serverTime.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false 
-            }),
-            date: serverTime.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-            }),
-            timezone: TimeZoneService.serverTimeZones[serverName]
+        const tz = TimeZoneService.serverTimeZones[serverName]
+        if (!tz) {
+            return { time: new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}), date: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'}), timezone: 'Unknown' }
         }
+        return TimeZoneService.getServerTimeDisplayByTimezone(tz)
     }
 
     // Start real-time updates for reset timers
@@ -148,6 +136,28 @@ class ResetTimerService {
         return timerId
     }
 
+    // New timezone-first helpers
+    startResetTimerForServer(server, callback) {
+        const { name, timezone } = server
+        const timerId = `${name}_reset_timer`
+        if (this.intervals.has(timerId)) {
+            clearInterval(this.intervals.get(timerId))
+        }
+        const tick = () => {
+            try {
+                const daily = TimeZoneService.getTimeUntilResetByTimezone(timezone, 'daily')
+                const weekly = TimeZoneService.getTimeUntilResetByTimezone(timezone, 'weekly')
+                const serverTime = TimeZoneService.getServerTimeDisplayByTimezone(timezone)
+                callback({ server: name, daily, weekly, serverTime, timestamp: Date.now() })
+            } catch (e) { console.error('Reset timer tick failed:', e) }
+        }
+        const interval = setInterval(tick, 1000)
+        this.intervals.set(timerId, interval)
+        this.callbacks.set(timerId, callback)
+        tick()
+        return timerId
+    }
+
     // Stop reset timer
     stopResetTimer(timerId) {
         if (this.intervals.has(timerId)) {
@@ -167,24 +177,15 @@ class ResetTimerService {
     }
 
     // Get reset information for multiple servers
-    getMultiServerResetInfo(serverNames) {
-        return serverNames.map(serverName => {
+    getMultiServerResetInfo(serverNamesOrServers) {
+        return serverNamesOrServers.map(item => {
+            const asObj = typeof item === 'string' ? { name: item, timezone: TimeZoneService.serverTimeZones[item] } : item
+            const { name, timezone } = asObj || {}
             try {
-                return {
-                    server: serverName,
-                    daily: this.getTimeUntilDailyReset(serverName),
-                    weekly: this.getTimeUntilWeeklyReset(serverName),
-                    serverTime: this.getServerTimeDisplay(serverName),
-                    error: null
-                }
+                if (!timezone) throw new Error('Missing timezone')
+                return { server: name, daily: TimeZoneService.getTimeUntilResetByTimezone(timezone, 'daily'), weekly: TimeZoneService.getTimeUntilResetByTimezone(timezone, 'weekly'), serverTime: TimeZoneService.getServerTimeDisplayByTimezone(timezone), error: null }
             } catch (error) {
-                return {
-                    server: serverName,
-                    daily: null,
-                    weekly: null,
-                    serverTime: null,
-                    error: error.message
-                }
+                return { server: name || String(item), daily: null, weekly: null, serverTime: null, error: error.message }
             }
         })
     }

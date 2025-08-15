@@ -8,7 +8,7 @@
   let upcomingEvents = []
   let resetTimers = {}
   let activeTimers = []
-  let selectedCharacterServers = []
+  let selectedCharacterServers = [] // array of { name, timezone }
   
   onMount(async () => {
     await loadData()
@@ -32,8 +32,15 @@
         const characterTasks = await api.getCharacterTasks(firstCharacter.id)
         todaysTasks = characterTasks.filter(task => task.type === 'daily')
         
-        // Extract unique servers from characters
-        selectedCharacterServers = [...new Set(characters.map(c => c.server_name))]
+        // Extract unique servers from characters with timezone
+        const pairs = characters.map(c => ({ name: c.server_name, timezone: c.server_timezone }))
+        const byKey = new Map()
+        for (const p of pairs) {
+          if (!p.name || !p.timezone) continue
+          const key = `${p.name}|${p.timezone}`
+          if (!byKey.has(key)) byKey.set(key, p)
+        }
+        selectedCharacterServers = Array.from(byKey.values())
       }
       
       // Load upcoming events
@@ -63,7 +70,7 @@
     if (selectedCharacterServers.length > 0) {
       try {
         // Get initial reset timer data
-        const resetData = await api.getResetTimers(selectedCharacterServers)
+        const resetData = await api.getResetTimersForServers(selectedCharacterServers)
         
         // Initialize reset timers object
         resetData.forEach(data => {
@@ -77,8 +84,8 @@
         })
         
         // Start live timers for each server
-        for (const serverName of selectedCharacterServers) {
-          const timerId = await api.startResetTimer(serverName, (timerData) => {
+        for (const srv of selectedCharacterServers) {
+          const timerId = await api.startResetTimer(srv.name, (timerData) => {
             // Update the reactive variable when timer updates
             resetTimers[timerData.server] = {
               daily: timerData.daily,

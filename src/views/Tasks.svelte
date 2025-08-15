@@ -177,8 +177,8 @@
   }
   
   async function batchDelete() {
-    if (selectedTaskIds.size === 0) return
-    const confirmed = confirm(`Delete ${selectedTaskIds.size} selected task(s)?`)
+    if (selectedTaskIds.length === 0) return
+    const confirmed = confirm(`Delete ${selectedTaskIds.length} selected task(s)?`)
     if (!confirmed) return
     try {
       for (const id of selectedTaskIds) {

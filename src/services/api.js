@@ -621,6 +621,24 @@ class ApiService {
         }
     }
 
+    // New: get reset timers when full server objects are available
+    async getResetTimersForServers(servers) {
+        await this.init()
+        try {
+            const { default: resetTimerService } = await import('./resetTimerService.js')
+            return resetTimerService.getMultiServerResetInfo(servers)
+        } catch (error) {
+            console.error('Error loading reset timer service:', error)
+            return servers.map(s => ({
+                server: s.name,
+                daily: { hours: 0, minutes: 0, seconds: 0, formatted: '00:00:00' },
+                weekly: { hours: 0, minutes: 0, seconds: 0, formatted: '00:00:00' },
+                serverTime: { time: '00:00:00', date: 'Unknown' },
+                error: 'Service unavailable'
+            }))
+        }
+    }
+
     async startResetTimer(serverName, callback) {
         await this.init()
         

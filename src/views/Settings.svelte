@@ -24,6 +24,8 @@
   let serverLoading = true
   let serverStats = { total: 0, active: 0, inactive: 0 }
   
+  
+  
   onMount(async () => {
     setTimeout(() => {
       loading = false
@@ -122,6 +124,8 @@
       serverStats = { total: servers?.length || 0, active: (servers || []).filter(s => s.active_status).length, inactive: (servers || []).filter(s => !s.active_status).length }
     }
   }
+
+  
 
   function openServerModal(server = null) {
     editingServer = server
@@ -363,6 +367,8 @@
         </div>
       </div>
       
+      
+
       <!-- About -->
       <div class="card">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">About</h2>
