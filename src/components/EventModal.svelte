@@ -30,6 +30,7 @@
   let isValid = true
   let initializedForKey = null
   let nameInputEl
+  let submitting = false
   
   // Event types
   const eventTypes = [
@@ -71,6 +72,7 @@
   // Reset init guard when modal closes
   $: if (!show) {
     initializedForKey = null
+    submitting = false
   }
   
   function populateForm() {
@@ -157,6 +159,7 @@
   }
   
   function handleSubmit() {
+    if (submitting) return
     if (!validateForm()) {
       return
     }
@@ -168,6 +171,7 @@
       timezone: formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
     }
     
+    submitting = true
     dispatch('save', eventData)
   }
   
@@ -462,8 +466,8 @@
           <button
             type="submit"
             form="eventForm"
-            on:click={handleSubmit}
-            class="px-4 py-2 text-sm font-medium text-white bg-nw-blue rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            class="px-4 py-2 text-sm font-medium text-white bg-nw-blue rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-60"
+            disabled={!isValid || submitting}
           >
             {isCreating ? 'Create Event' : 'Update Event'}
           </button>

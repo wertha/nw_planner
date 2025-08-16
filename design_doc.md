@@ -1194,3 +1194,23 @@ Testing checklist
   - Around DST transitions, confirm daily and weekly next-reset UTC instants remain correct and advance monotonically.
   - On Thursday (local), validate weekly ≈ daily + 96h for most servers; differences allowed where server-local date differs.
   - Verify Tasks completion periods (daily/weekly) align with countdown reset boundaries for each character’s `server_timezone`.
+
+### 10.6 Events — Modal and UX updates
+
+Recent fixes
+- Form initialization: add an open-cycle guard keyed by `editingEvent?.id` or `__create__` to prevent reactive re-inits while the modal is open. Guard is cleared on close, cancel, delete, and after successful submit.
+- Focus handling: focus the name field on open to guarantee keyboard navigation works on subsequent opens.
+- Validation: require presence of fields; allow editing past events (no “must be future” constraint) to avoid blocking edits.
+- Submission path: rely solely on the form’s `on:submit|preventDefault` handler; remove button click handler to prevent double submits. Add a `submitting` reentrancy flag and disable the button while submitting to avoid duplicates.
+
+Planned UX improvements
+- Hide past events by default on the Events page list and Calendar integration, with a toggle to show them:
+  - Add a “Show past events” switch (default off). When off, filter events where `event_time < now()` out of the list. Calendar view already focuses on current view; ensure sidebar/list respects the same filter.
+  - Provide a small hint when past events are hidden, including a quick toggle to reveal them.
+  - Persist the toggle setting (renderer store) so preference survives reloads.
+
+Testing checklist (Events)
+- Verify Create and Edit flows can be used repeatedly without losing input focus or disabling inputs on the second open.
+- Confirm editing a past-dated event saves successfully.
+- Confirm no duplicate events are created on a single submit (button disabled while submitting, only one dispatch path).
+- Verify the “Show past events” toggle hides past entries and persists across navigation.
