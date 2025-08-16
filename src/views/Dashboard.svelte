@@ -85,7 +85,7 @@
         
         // Start live timers for each server
         for (const srv of selectedCharacterServers) {
-          const timerId = await api.startResetTimer(srv.name, (timerData) => {
+          const timerId = await api.startResetTimerForServer(srv, (timerData) => {
             // Update the reactive variable when timer updates
             resetTimers[timerData.server] = {
               daily: timerData.daily,

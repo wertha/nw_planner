@@ -21,12 +21,15 @@
     location: '',
     recurring_pattern: null,
     notification_enabled: true,
-    notification_minutes: 30
+    notification_minutes: 30,
+    timezone: ''
   }
   
   // Validation
   let errors = {}
   let isValid = true
+  let initializedForKey = null
+  let nameInputEl
   
   // Event types
   const eventTypes = [
@@ -50,13 +53,24 @@
   
   // Server list is inferred from the selected character; no explicit server dropdown needed
   
-  // Reactive statements
-  $: if (show && editingEvent) {
-    populateForm()
+  // Reactive initialization guard (prevents form reset on every reactive tick)
+  $: if (show) {
+    const key = editingEvent?.id ?? '__create__'
+    if (initializedForKey !== key) {
+      if (editingEvent) {
+        populateForm()
+      } else {
+        resetForm()
+      }
+      initializedForKey = key
+      // focus first input shortly after mount
+      setTimeout(() => { if (nameInputEl) nameInputEl.focus() }, 0)
+    }
   }
   
-  $: if (show && !editingEvent) {
-    resetForm()
+  // Reset init guard when modal closes
+  $: if (!show) {
+    initializedForKey = null
   }
   
   function populateForm() {
@@ -73,8 +87,10 @@
       location: editingEvent.location || '',
       recurring_pattern: editingEvent.recurring_pattern || null,
       notification_enabled: editingEvent.notification_enabled !== false,
-      notification_minutes: editingEvent.notification_minutes || 30
+      notification_minutes: editingEvent.notification_minutes || 30,
+      timezone: editingEvent.timezone || ''
     }
+    isValid = true
   }
   
   function resetForm() {
@@ -89,9 +105,11 @@
       location: '',
       recurring_pattern: null,
       notification_enabled: true,
-      notification_minutes: 30
+      notification_minutes: 30,
+      timezone: characters.length > 0 ? characters[0].server_timezone : Intl.DateTimeFormat().resolvedOptions().timeZone
     }
     errors = {}
+    isValid = true
   }
   
   function formatDateTimeLocal(dateString) {
@@ -127,15 +145,7 @@
       errors.character_id = 'Character selection is required'
     }
     
-    // Validate event time is in the future
-    if (formData.event_time) {
-      const eventDate = new Date(formData.event_time)
-      const now = new Date()
-      
-      if (eventDate <= now) {
-        errors.event_time = 'Event time must be in the future'
-      }
-    }
+    // Note: allow editing past events; only require presence
     
     // Validate notification minutes
     if (formData.notification_enabled && formData.notification_minutes < 0) {
@@ -155,19 +165,21 @@
     const eventData = {
       ...formData,
       event_time: new Date(formData.event_time).toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      timezone: formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
     }
     
     dispatch('save', eventData)
   }
   
   function handleCancel() {
+    initializedForKey = null
     dispatch('cancel')
   }
   
   function handleDelete() {
     if (editingEvent && editingEvent.id) {
       if (confirm('Are you sure you want to delete this event?')) {
+        initializedForKey = null
         dispatch('delete', editingEvent.id)
       }
     }
@@ -191,6 +203,7 @@
       const character = characters.find(c => c.id === parseInt(formData.character_id))
       if (character) {
         formData.server_name = character.server_name
+        formData.timezone = character.server_timezone
       }
     }
   }
@@ -259,7 +272,7 @@
       </div>
       
       <!-- Form -->
-      <form on:submit|preventDefault={handleSubmit} class="p-6 space-y-6">
+      <form id="eventForm" on:submit|preventDefault={handleSubmit} class="p-6 space-y-6">
         <!-- Event Name -->
         <div>
           <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -268,6 +281,7 @@
           <input
             type="text"
             id="name"
+            bind:this={nameInputEl}
             bind:value={formData.name}
             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-nw-blue focus:border-transparent dark:bg-gray-700 dark:text-white"
             placeholder="Enter event name"
@@ -447,9 +461,9 @@
           </button>
           <button
             type="submit"
+            form="eventForm"
             on:click={handleSubmit}
             class="px-4 py-2 text-sm font-medium text-white bg-nw-blue rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-            disabled={!isValid}
           >
             {isCreating ? 'Create Event' : 'Update Event'}
           </button>

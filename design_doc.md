@@ -873,7 +873,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 
 **Test 14.1: Assignment Management**
 - [x] Assign a task to a character via Tasks view assignment UI
-- [ ] Verify it appears on Dashboard for that character
+- [x] Verify it appears on Dashboard for that character
 - [x] Remove assignment; verify it disappears from that character’s list
  - [x] Create a new task; confirm typing works in text inputs and textareas
  - [x] Edit an existing task; confirm typing works in text inputs and textareas
@@ -887,8 +887,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Test event name input
 - [x] Test event type selection (War, Invasion, Company Event)
 - [x] Test date/time selection
-- [x] Test server selection
-- [ ] Test character selection
+- [x] Test character selection
 - [ ] Test description input
 - [ ] Test RSVP status selection
 - [ ] Create event and verify it appears in list

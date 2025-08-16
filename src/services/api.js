@@ -656,6 +656,18 @@ class ApiService {
         }
     }
 
+    // New: start timer with full server object (timezone-first)
+    async startResetTimerForServer(server, callback) {
+        await this.init()
+        try {
+            const { default: resetTimerService } = await import('./resetTimerService.js')
+            return resetTimerService.startResetTimerForServer(server, callback)
+        } catch (error) {
+            console.error('Error starting reset timer (server object):', error)
+            return null
+        }
+    }
+
     async stopResetTimer(timerId) {
         await this.init()
         
