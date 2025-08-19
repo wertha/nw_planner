@@ -163,23 +163,23 @@
     <div class="card mb-6">
       <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
       {#if upcomingFiltered.length > 0}
-        <div class="space-y-4">
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
         {#each upcomingFiltered as event}
           {@const timeData = formatEventTime(event.event_time)}
-          <div class="card">
-            <div class="flex items-start justify-between">
+          <div class="py-3">
+            <div class="flex items-start justify-between gap-3">
               <div class="flex-1">
                 <!-- Event Header -->
-                <div class="flex items-center space-x-3 mb-2">
-                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{event.name}</h3>
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="text-base font-semibold text-gray-900 dark:text-white">{event.name}</h3>
                   <span class="text-xs px-2 py-1 rounded-full {getEventTypeColor(event.event_type)}">
                     {event.event_type}
                   </span>
                 </div>
                 
                 <!-- Event Details -->
-                <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                  <div class="flex items-center space-x-4">
+                <div class="text-xs text-gray-600 dark:text-gray-400">
+                  <div class="flex items-center gap-3">
                     <span>📅 {timeData.date} at {timeData.time}</span>
                     {#if event.server_name}
                       <span>🌐 {event.server_name}</span>
@@ -190,7 +190,7 @@
                   </div>
                   
                   {#if event.description}
-                    <div class="text-gray-500 dark:text-gray-400 italic">
+                    <div class="text-gray-500 dark:text-gray-400 italic mt-0.5">
                       {event.description}
                     </div>
                   {/if}
@@ -198,7 +198,7 @@
               </div>
               
               <!-- Actions -->
-              <div class="flex items-center space-x-3 ml-4">
+              <div class="flex items-center gap-2 ml-2">
                 <!-- RSVP Status Dropdown -->
                 <select 
                   value={event.participation_status || 'Signed Up'}
@@ -217,9 +217,9 @@
                 </select>
                 
                 <!-- Action Buttons -->
-                <div class="flex space-x-1">
+                <div class="flex gap-1">
                   <button class="btn-secondary text-xs px-2 py-1" on:click={() => openEdit(event)}>Edit</button>
-                  <button 
+                  <button
                     class="btn-danger text-xs px-2 py-1"
                     on:click={() => deleteEvent(event.id)}
                   >
@@ -240,20 +240,20 @@
     <div class="card">
       <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Past Events</h2>
       {#if pastFiltered.length > 0}
-        <div class="space-y-4">
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
           {#each pastFiltered as event}
             {@const timeData = formatEventTime(event.event_time)}
-            <div class="card opacity-70">
-              <div class="flex items-start justify-between">
+            <div class="py-3 opacity-70">
+              <div class="flex items-start justify-between gap-3">
                 <div class="flex-1">
-                  <div class="flex items-center space-x-3 mb-2">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{event.name}</h3>
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">{event.name}</h3>
                     <span class="text-xs px-2 py-1 rounded-full {getEventTypeColor(event.event_type)}">
                       {event.event_type}
                     </span>
                   </div>
-                  <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                    <div class="flex items-center space-x-4">
+                  <div class="text-xs text-gray-600 dark:text-gray-400">
+                    <div class="flex items-center gap-3">
                       <span>📅 {timeData.date} at {timeData.time}</span>
                       {#if event.server_name}
                         <span>🌐 {event.server_name}</span>
@@ -263,12 +263,12 @@
                       {/if}
                     </div>
                     {#if event.description}
-                      <div class="text-gray-500 dark:text-gray-400 italic">{event.description}</div>
+                      <div class="text-gray-500 dark:text-gray-400 italic mt-0.5">{event.description}</div>
                     {/if}
                   </div>
                 </div>
-                <div class="flex items-center space-x-3 ml-4">
-                  <div class="flex space-x-1">
+                <div class="flex items-center gap-2 ml-2">
+                  <div class="flex gap-1">
                     <button class="btn-secondary text-xs" on:click={() => openEdit(event)}>Edit</button>
                     <button class="btn-danger text-xs" on:click={() => deleteEvent(event.id)}>Delete</button>
                   </div>
