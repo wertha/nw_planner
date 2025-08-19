@@ -4,11 +4,12 @@
   
   let loading = true
   let characters = []
-  let todaysTasks = []
+  let displayedTasks = []
   let upcomingEvents = []
   let resetTimers = {}
   let activeTimers = []
   let selectedCharacterServers = [] // array of { name, timezone }
+  let selectedCharacterId = null
   
   onMount(async () => {
     await loadData()
@@ -26,11 +27,11 @@
       // Load characters
       characters = await api.getActiveCharacters()
       
-      // Load today's tasks for the first active character
+      // Load tasks for selected character (default to first)
       if (characters.length > 0) {
-        const firstCharacter = characters[0]
-        const characterTasks = await api.getCharacterTasks(firstCharacter.id)
-        todaysTasks = characterTasks.filter(task => task.type === 'daily')
+        if (!selectedCharacterId) selectedCharacterId = characters[0].id
+        const characterTasks = await api.getCharacterTasks(selectedCharacterId)
+        displayedTasks = characterTasks
         
         // Extract unique servers from characters with timezone
         const pairs = characters.map(c => ({ name: c.server_name, timezone: c.server_timezone }))
@@ -114,21 +115,30 @@
   }
 
   async function toggleTaskCompletion(task) {
-    if (characters.length === 0) return
-    
-    const firstCharacter = characters[0]
+    if (!selectedCharacterId) return
     
     try {
       if (task.completed) {
-        await api.markTaskIncomplete(task.id, firstCharacter.id, task.resetPeriod)
+        await api.markTaskIncomplete(task.id, selectedCharacterId, task.resetPeriod)
       } else {
-        await api.markTaskComplete(task.id, firstCharacter.id, task.resetPeriod)
+        await api.markTaskComplete(task.id, selectedCharacterId, task.resetPeriod)
       }
       
       // Reload tasks to update the UI
-      await loadData()
+      await loadTasksForCharacter(selectedCharacterId)
     } catch (error) {
       console.error('Error toggling task completion:', error)
+    }
+  }
+
+  async function loadTasksForCharacter(characterId) {
+    try {
+      selectedCharacterId = characterId
+      if (!characterId) { displayedTasks = []; return }
+      const characterTasks = await api.getCharacterTasks(characterId)
+      displayedTasks = characterTasks
+    } catch (e) {
+      displayedTasks = []
     }
   }
 </script>
@@ -144,47 +154,66 @@
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-nw-blue"></div>
     </div>
   {:else}
-    <!-- Character Summary -->
-    {#if characters.length > 0}
-      <div class="mb-6">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Active Characters</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {#each characters as character}
-            <div class="card">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h3 class="font-semibold text-gray-900 dark:text-white">{character.name}</h3>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">{character.server_name}</p>
+    <!-- Upcoming Events moved above Tasks -->
+    <div class="mb-6">
+      <div class="card">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
+        {#if upcomingEvents.length > 0}
+          <div class="space-y-3">
+            {#each upcomingEvents as event}
+              <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center space-x-2">
+                      <span class="font-medium text-gray-900 dark:text-white">{event.name}</span>
+                      <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{event.event_type}</span>
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      📅 {event.time} - {event.server}
+                      {#if event.location} • 📍 {event.location}{/if}
+                    </div>
+                    {#if event.description}
+                      <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">{event.description}</div>
+                    {/if}
+                  </div>
+                  <div class="ml-3">
+                    <span class="text-xs px-2 py-1 rounded-full {
+                      event.participation_status === 'Confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200' :
+                      event.participation_status === 'Signed Up' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200' :
+                      event.participation_status === 'Tentative' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }">{event.participation_status || 'No RSVP'}</span>
+                  </div>
                 </div>
-                <span class="text-sm px-2 py-1 rounded-full faction-{character.faction.toLowerCase()} bg-opacity-20">
-                  {character.faction}
-                </span>
               </div>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="text-center text-gray-500 dark:text-gray-400 py-4">
+            <p class="text-sm">No upcoming events</p>
+            <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => window.location.hash = '#/events'}>Create your first event →</button>
+          </div>
+        {/if}
       </div>
-    {:else}
-      <div class="mb-6">
-        <div class="card text-center">
-          <p class="text-gray-600 dark:text-gray-400 mb-4">No active characters found. Create your first character to get started!</p>
-          <button 
-            class="btn-primary" 
-            on:click={() => window.location.hash = '#/characters'}
-          >
-            Add Character
-          </button>
-        </div>
-      </div>
-    {/if}
+    </div>
     
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Today's Tasks -->
+      <!-- Tasks with character selector -->
       <div class="lg:col-span-2">
         <div class="card">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Today's Tasks</h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Tasks</h2>
+            <div class="flex items-center gap-2">
+              <label for="dash-character" class="text-sm text-gray-600 dark:text-gray-400">Character</label>
+              <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-sm">
+                {#each characters as c}
+                  <option value={c.id}>{c.name}</option>
+                {/each}
+              </select>
+            </div>
+          </div>
           <div class="space-y-3">
-            {#each todaysTasks as task}
+            {#each displayedTasks as task}
               <div class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600">
                 <div class="flex items-center space-x-3">
                   <input 
@@ -193,7 +222,10 @@
                     on:change={() => toggleTaskCompletion(task)}
                     class="w-5 h-5 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                   />
-                  <span class="text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                  <div class="flex flex-col">
+                    <span class="text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{task.type}</span>
+                  </div>
                 </div>
                 <span class="text-sm priority-{task.priority.toLowerCase()}">{task.priority}</span>
               </div>
@@ -262,62 +294,7 @@
           {/if}
         </div>
         
-        <div class="card">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
-          
-          {#if upcomingEvents.length > 0}
-            <div class="space-y-3">
-              {#each upcomingEvents as event}
-                <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                      <div class="flex items-center space-x-2">
-                        <span class="font-medium text-gray-900 dark:text-white">{event.name}</span>
-                        <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                          {event.event_type}
-                        </span>
-                      </div>
-                      
-                      <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        📅 {event.time} - {event.server}
-                        {#if event.location}
-                          • 📍 {event.location}
-                        {/if}
-                      </div>
-                      
-                      {#if event.description}
-                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
-                          {event.description}
-                        </div>
-                      {/if}
-                    </div>
-                    
-                    <div class="ml-3">
-                      <span class="text-xs px-2 py-1 rounded-full {
-                        event.participation_status === 'Confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200' :
-                        event.participation_status === 'Signed Up' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200' :
-                        event.participation_status === 'Tentative' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                      }">
-                        {event.participation_status || 'No RSVP'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="text-center text-gray-500 dark:text-gray-400 py-4">
-              <p class="text-sm">No upcoming events</p>
-              <button 
-                class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark"
-                on:click={() => window.location.hash = '#/events'}
-              >
-                Create your first event →
-              </button>
-            </div>
-          {/if}
-        </div>
+        <!-- Removed duplicate upcoming events (moved above) -->
       </div>
     </div>
   {/if}
