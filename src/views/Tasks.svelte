@@ -258,7 +258,8 @@
   async function handleBatchAssign(characterIds) {
     try {
       for (const taskId of selectedTaskIds) {
-        await api.setTaskAssignments(taskId, characterIds)
+        // Additive assignment: do not remove existing characters
+        await api.assignTaskToCharacters(taskId, characterIds)
       }
       showBatchAssign = false
       clearSelection()
