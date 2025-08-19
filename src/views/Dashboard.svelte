@@ -203,7 +203,7 @@
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
             <div class="flex items-center gap-2">
-              <label for="dash-character" class="text-xs text-gray-600 dark:text-gray-400">Character</label>
+              <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
               <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
                 {#each characters as c}
                   <option value={c.id}>{c.name}</option>
