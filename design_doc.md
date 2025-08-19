@@ -1203,14 +1203,43 @@ Recent fixes
 - Validation: require presence of fields; allow editing past events (no “must be future” constraint) to avoid blocking edits.
 - Submission path: rely solely on the form’s `on:submit|preventDefault` handler; remove button click handler to prevent double submits. Add a `submitting` reentrancy flag and disable the button while submitting to avoid duplicates.
 
-Planned UX improvements
-- Hide past events by default on the Events page list and Calendar integration, with a toggle to show them:
-  - Add a “Show past events” switch (default off). When off, filter events where `event_time < now()` out of the list. Calendar view already focuses on current view; ensure sidebar/list respects the same filter.
-  - Provide a small hint when past events are hidden, including a quick toggle to reveal them.
-  - Persist the toggle setting (renderer store) so preference survives reloads.
+Implemented UX changes
+- Events list is now split into two sections: “Upcoming Events” and “Past Events”.
+  - Classification is automatic based on `event_time` versus the current time; updates in-place every 30s so items naturally move between sections.
+  - Past events render compact and slightly dimmed; retain Edit/Delete actions.
+- Event rows were compacted: smaller typography, tighter spacing, divider list, and condensed metadata row.
 
 Testing checklist (Events)
 - Verify Create and Edit flows can be used repeatedly without losing input focus or disabling inputs on the second open.
 - Confirm editing a past-dated event saves successfully.
 - Confirm no duplicate events are created on a single submit (button disabled while submitting, only one dispatch path).
-- Verify the “Show past events” toggle hides past entries and persists across navigation.
+- Verify Upcoming/Past classification updates within ~30s without reload.
+- Confirm Past Events appear dimmed and use compact layout, with working Edit/Delete actions.
+
+### 10.7 Calendar — Filtering and layout polish
+
+Changes
+- Replaced chip-row character filter with a scalable control:
+  - Search box + All/None toggle stacked above a horizontally scrollable row of clickable character chips.
+  - Chips support keyboard interaction (Enter/Space) and show pointer cursor.
+  - The selector is width-limited (`md:max-w-md`) to reduce horizontal footprint.
+- Removed duplicate navigation controls; rely on FullCalendar toolbar only.
+- Moved legend below the calendar to prioritize the content area.
+- Stabilized modal open/close from Calendar by deferring state clear with `queueMicrotask` to avoid focus loss.
+
+Testing checklist (Calendar)
+- With many characters, verify search filters chips and chip selection updates the events rendered.
+- All/None toggle selects/deselects and persists via store while navigating.
+- Keyboard interaction on chips (Enter/Space) toggles selection; chips show pointer cursor.
+- Legend renders below the calendar; no duplicated navigation controls.
+- Opening/closing the Event modal from Calendar repeatedly preserves focus and input interactivity; edited events save.
+
+### 10.5 Tasks — Weekly reset behavior
+
+Changes
+- Weekly period token generation switched to ISO week calculation to align with Tuesday 05:00 boundaries.
+- Tasks view listens to per-server reset timers; when the weekly countdown crosses 0, character task lists for that server auto-refresh.
+
+Testing checklist (Tasks)
+- Verify weekly reset tokens match server-local Tuesday 05:00 periods across timezones/DST.
+- When the weekly reset occurs, assigned weekly tasks for affected characters re-render as incomplete without manual refresh.
