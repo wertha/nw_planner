@@ -424,11 +424,11 @@
       </div>
       
       <!-- Character Filters (compact & clickable chips) -->
-      <div class="w-full">
+      <div class="w-full md:max-w-md">
         <div class="flex items-center gap-2 mb-2">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Characters:</span>
           <button on:click={toggleSelectAll} class="text-xs px-2 py-1 rounded {showAll ? 'bg-nw-blue text-white' : 'bg-gray-500 text-white'}">{showAll ? 'All' : 'None'}</button>
-          <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
+          <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 w-32 sm:w-40" />
         </div>
         <div class="overflow-x-auto whitespace-nowrap">
           <div class="inline-flex items-center gap-1 px-1">
@@ -454,8 +454,13 @@
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-nw-blue"></div>
     </div>
   {:else}
+    <!-- Calendar -->
+    <div class="card">
+      <div bind:this={calendarEl} class="calendar-container"></div>
+    </div>
+    
     <!-- Legend -->
-    <div class="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+    <div class="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
       <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Legend</h3>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
         <div class="flex items-center space-x-2">
@@ -483,11 +488,6 @@
           <span class="text-gray-600 dark:text-gray-400">Weekly Reset</span>
         </div>
       </div>
-    </div>
-    
-    <!-- Calendar -->
-    <div class="card">
-      <div bind:this={calendarEl} class="calendar-container"></div>
     </div>
   {/if}
 </div>
