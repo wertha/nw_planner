@@ -423,25 +423,23 @@
         <p class="text-gray-600 dark:text-gray-400">View and manage your events and schedules.</p>
       </div>
       
-      <!-- Character Filters (scalable) -->
-      <div class="flex items-center gap-3 flex-wrap">
+      <!-- Character Filters (compact & clickable chips) -->
+      <div class="flex items-center gap-2 flex-wrap">
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Characters:</span>
         <button on:click={toggleSelectAll} class="text-xs px-2 py-1 rounded {showAll ? 'bg-nw-blue text-white' : 'bg-gray-500 text-white'}">{showAll ? 'All' : 'None'}</button>
-        <div class="relative">
-          <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
-        </div>
-        <div class="max-h-24 overflow-y-auto flex flex-wrap gap-2 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 bg-white dark:bg-gray-800">
-          {#each filteredCharacters as character}
-            <label class="inline-flex items-center gap-1 text-xs">
-              <input type="checkbox" checked={selectedCharacterIds.includes(character.id)} on:change={(e) => {
-                const checked = e.target.checked
-                const set = new Set(selectedCharacterIds)
-                if (checked) set.add(character.id); else set.delete(character.id)
-                applySelection(Array.from(set))
-              }} class="rounded border-gray-300 text-nw-blue focus:ring-nw-blue dark:border-gray-600 dark:bg-gray-700" />
-              <span class="px-2 py-0.5 rounded-full border {selectedCharacterIds.includes(character.id) ? 'bg-nw-blue text-white border-nw-blue' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'}">{character.name}</span>
-            </label>
-          {/each}
+        <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
+        <div class="overflow-x-auto whitespace-nowrap flex-1">
+          <div class="inline-flex items-center gap-1 px-1">
+            {#each filteredCharacters as character}
+              {@const active = selectedCharacterIds.includes(character.id)}
+              <span role="button" tabindex="0" aria-pressed={active} title={character.name}
+                class="chip cursor-pointer select-none px-2 py-0.5 text-xs rounded-full border transition-colors {active ? 'bg-nw-blue text-white border-nw-blue' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}"
+                on:click={() => { const s = new Set(selectedCharacterIds); if (s.has(character.id)) s.delete(character.id); else s.add(character.id); applySelection(Array.from(s)) }}
+                on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const s = new Set(selectedCharacterIds); if (s.has(character.id)) s.delete(character.id); else s.add(character.id); applySelection(Array.from(s)) } }}>
+                {character.name}
+              </span>
+            {/each}
+          </div>
         </div>
       </div>
     </div>
@@ -621,4 +619,5 @@
   :global(.dark .fc-today) {
     background: rgba(59, 130, 246, 0.2) !important;
   }
-</style> 
+  .chip { cursor: pointer; }
+</style>
