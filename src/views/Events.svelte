@@ -10,10 +10,18 @@
   let filterCharacter = 'all'
   let showModal = false
   let editingEvent = null
+  let now = new Date()
+  let nowTimer = null
   
   onMount(async () => {
     await loadData()
+    // Update `now` periodically so events auto-move to Past
+    nowTimer = setInterval(() => { now = new Date() }, 30000)
   })
+  
+  // Cleanup timer
+  import { onDestroy } from 'svelte'
+  onDestroy(() => { if (nowTimer) clearInterval(nowTimer) })
   
   async function loadData() {
     loading = true
@@ -84,6 +92,14 @@
     return typeMatch && characterMatch
   })
   
+  // Split into upcoming vs past based on current time
+  $: upcomingFiltered = filteredEvents
+    .filter(e => new Date(e.event_time) > now)
+    .sort((a, b) => new Date(a.event_time) - new Date(b.event_time))
+  $: pastFiltered = filteredEvents
+    .filter(e => new Date(e.event_time) <= now)
+    .sort((a, b) => new Date(b.event_time) - new Date(a.event_time))
+  
   // Get unique event types for filter
   $: eventTypes = [...new Set(events.map(e => e.event_type))].filter(Boolean)
   
@@ -143,10 +159,12 @@
       </div>
     </div>
     
-    <!-- Events List -->
-    {#if filteredEvents.length > 0}
-      <div class="space-y-4">
-        {#each filteredEvents as event}
+    <!-- Upcoming Events -->
+    <div class="card mb-6">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
+      {#if upcomingFiltered.length > 0}
+        <div class="space-y-4">
+        {#each upcomingFiltered as event}
           {@const timeData = formatEventTime(event.event_time)}
           <div class="card">
             <div class="flex items-start justify-between">
@@ -212,21 +230,57 @@
             </div>
           </div>
         {/each}
-      </div>
-    {:else}
-      <div class="text-center py-12">
-        <div class="text-gray-400 mb-4">
-          <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
         </div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No events found</h3>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">
-          {events.length === 0 ? 'You haven\'t created any events yet.' : 'No events match your current filters.'}
-        </p>
-        <button class="btn-primary" on:click={openCreate}>Create Your First Event</button>
-      </div>
-    {/if}
+      {:else}
+        <div class="text-sm text-gray-600 dark:text-gray-400">No upcoming events match your filters.</div>
+      {/if}
+    </div>
+    
+    <!-- Past Events -->
+    <div class="card">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Past Events</h2>
+      {#if pastFiltered.length > 0}
+        <div class="space-y-4">
+          {#each pastFiltered as event}
+            {@const timeData = formatEventTime(event.event_time)}
+            <div class="card opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center space-x-3 mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{event.name}</h3>
+                    <span class="text-xs px-2 py-1 rounded-full {getEventTypeColor(event.event_type)}">
+                      {event.event_type}
+                    </span>
+                  </div>
+                  <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <div class="flex items-center space-x-4">
+                      <span>📅 {timeData.date} at {timeData.time}</span>
+                      {#if event.server_name}
+                        <span>🌐 {event.server_name}</span>
+                      {/if}
+                      {#if event.location}
+                        <span>📍 {event.location}</span>
+                      {/if}
+                    </div>
+                    {#if event.description}
+                      <div class="text-gray-500 dark:text-gray-400 italic">{event.description}</div>
+                    {/if}
+                  </div>
+                </div>
+                <div class="flex items-center space-x-3 ml-4">
+                  <div class="flex space-x-1">
+                    <button class="btn-secondary text-xs" on:click={() => openEdit(event)}>Edit</button>
+                    <button class="btn-danger text-xs" on:click={() => deleteEvent(event.id)}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="text-sm text-gray-600 dark:text-gray-400">No past events.</div>
+      {/if}
+    </div>
   {/if}
   <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
 </div> 
