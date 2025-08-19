@@ -154,52 +154,51 @@
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-nw-blue"></div>
     </div>
   {:else}
-    <!-- Upcoming Events moved above Tasks -->
-    <div class="mb-6">
-      <div class="card">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
-        {#if upcomingEvents.length > 0}
-          <div class="space-y-3">
-            {#each upcomingEvents as event}
-              <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center space-x-2">
-                      <span class="font-medium text-gray-900 dark:text-white">{event.name}</span>
-                      <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{event.event_type}</span>
-                    </div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      📅 {event.time} - {event.server}
-                      {#if event.location} • 📍 {event.location}{/if}
-                    </div>
-                    {#if event.description}
-                      <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">{event.description}</div>
-                    {/if}
-                  </div>
-                  <div class="ml-3">
-                    <span class="text-xs px-2 py-1 rounded-full {
-                      event.participation_status === 'Confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200' :
-                      event.participation_status === 'Signed Up' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200' :
-                      event.participation_status === 'Tentative' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :
-                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }">{event.participation_status || 'No RSVP'}</span>
-                  </div>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <div class="text-center text-gray-500 dark:text-gray-400 py-4">
-            <p class="text-sm">No upcoming events</p>
-            <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => window.location.hash = '#/events'}>Create your first event →</button>
-          </div>
-        {/if}
-      </div>
-    </div>
+    
     
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Tasks with character selector -->
-      <div class="lg:col-span-2">
+      <!-- Left column: Upcoming Events above Tasks -->
+      <div class="lg:col-span-2 space-y-6">
+        <div class="card">
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
+          {#if upcomingEvents.length > 0}
+            <div class="space-y-3">
+              {#each upcomingEvents as event}
+                <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                      <div class="flex items-center space-x-2">
+                        <span class="font-medium text-gray-900 dark:text-white">{event.name}</span>
+                        <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{event.event_type}</span>
+                      </div>
+                      <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        📅 {event.time} - {event.server}
+                        {#if event.location} • 📍 {event.location}{/if}
+                      </div>
+                      {#if event.description}
+                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">{event.description}</div>
+                      {/if}
+                    </div>
+                    <div class="ml-3">
+                      <span class="text-xs px-2 py-1 rounded-full {
+                        event.participation_status === 'Confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200' :
+                        event.participation_status === 'Signed Up' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200' :
+                        event.participation_status === 'Tentative' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                      }">{event.participation_status || 'No RSVP'}</span>
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="text-center text-gray-500 dark:text-gray-400 py-4">
+              <p class="text-sm">No upcoming events</p>
+              <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => window.location.hash = '#/events'}>Create your first event →</button>
+            </div>
+          {/if}
+        </div>
+
         <div class="card">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Tasks</h2>
