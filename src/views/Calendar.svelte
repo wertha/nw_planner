@@ -14,6 +14,8 @@
   let events = []
   let characters = []
   let selectedCharacterIds = []
+  let characterSearch = ''
+  let showAll = true
   let calendarView = 'dayGridMonth'
   let currentDate = new Date()
   let showEventModal = false
@@ -83,9 +85,9 @@
       events = eventsData
       characters = charactersData
       
-      // Set default character selection if none selected
+      // Set default to "All"
       if (selectedCharacterIds.length === 0 && characters.length > 0) {
-        selectedCharacterIds = [characters[0].id]
+        selectedCharacterIds = characters.map(c => c.id)
         selectedCharacters.set(selectedCharacterIds)
       }
     } catch (error) {
@@ -120,10 +122,9 @@
         end.toISOString()
       )
       
-      // Filter events by selected characters
-      const filteredEvents = calendarEvents.filter(event => 
-        selectedCharacterIds.includes(event.character_id)
-      )
+      // Filter events by selected characters (or show all)
+      const allowed = new Set(selectedCharacterIds)
+      const filteredEvents = calendarEvents.filter(event => allowed.has(event.character_id))
       
       // Format events for FullCalendar
       const formattedEvents = filteredEvents.map(event => ({
@@ -372,29 +373,16 @@
   }
   
   // Character filter functions
-  function toggleCharacterFilter(characterId) {
-    const currentIndex = selectedCharacterIds.indexOf(characterId)
-    let newSelection = [...selectedCharacterIds]
-    
-    if (currentIndex > -1) {
-      newSelection.splice(currentIndex, 1)
-    } else {
-      newSelection.push(characterId)
-    }
-    
-    selectedCharacterIds = newSelection
-    selectedCharacters.set(newSelection)
+  function applySelection(ids) {
+    selectedCharacterIds = ids
+    selectedCharacters.set(ids)
+    showAll = ids.length === characters.length
   }
-  
-  function selectAllCharacters() {
-    selectedCharacterIds = characters.map(c => c.id)
-    selectedCharacters.set(selectedCharacterIds)
-  }
-  
-  function selectNoCharacters() {
-    selectedCharacterIds = []
-    selectedCharacters.set([])
-  }
+  function selectAllCharacters() { applySelection(characters.map(c => c.id)) }
+  function selectNoCharacters() { applySelection([]) }
+  function toggleSelectAll() { showAll ? selectNoCharacters() : selectAllCharacters() }
+  function onSearchInput(e) { characterSearch = e.target.value || '' }
+  $: filteredCharacters = characters.filter(c => c.name.toLowerCase().includes(characterSearch.toLowerCase()))
   
   // Calendar view functions
   function changeView(view) {
@@ -435,34 +423,24 @@
         <p class="text-gray-600 dark:text-gray-400">View and manage your events and schedules.</p>
       </div>
       
-      <!-- Character Filters -->
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Characters:</span>
-          <button
-            on:click={selectAllCharacters}
-            class="text-xs px-2 py-1 bg-nw-blue text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            All
-          </button>
-          <button
-            on:click={selectNoCharacters}
-            class="text-xs px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-          >
-            None
-          </button>
+      <!-- Character Filters (scalable) -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Characters:</span>
+        <button on:click={toggleSelectAll} class="text-xs px-2 py-1 rounded {showAll ? 'bg-nw-blue text-white' : 'bg-gray-500 text-white'}">{showAll ? 'All' : 'None'}</button>
+        <div class="relative">
+          <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
         </div>
-        
-        <div class="flex flex-wrap gap-2">
-          {#each characters as character}
-            <button
-              on:click={() => toggleCharacterFilter(character.id)}
-              class="text-xs px-3 py-1 rounded-full border transition-colors {selectedCharacterIds.includes(character.id) 
-                ? 'bg-nw-blue text-white border-nw-blue' 
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}"
-            >
-              {character.name}
-            </button>
+        <div class="max-h-24 overflow-y-auto flex flex-wrap gap-2 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 bg-white dark:bg-gray-800">
+          {#each filteredCharacters as character}
+            <label class="inline-flex items-center gap-1 text-xs">
+              <input type="checkbox" checked={selectedCharacterIds.includes(character.id)} on:change={(e) => {
+                const checked = e.target.checked
+                const set = new Set(selectedCharacterIds)
+                if (checked) set.add(character.id); else set.delete(character.id)
+                applySelection(Array.from(set))
+              }} class="rounded border-gray-300 text-nw-blue focus:ring-nw-blue dark:border-gray-600 dark:bg-gray-700" />
+              <span class="px-2 py-0.5 rounded-full border {selectedCharacterIds.includes(character.id) ? 'bg-nw-blue text-white border-nw-blue' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'}">{character.name}</span>
+            </label>
           {/each}
         </div>
       </div>
