@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import api from '../services/api.js'
   import TaskModal from '../components/TaskModal.svelte'
   import BatchAssignModal from '../components/BatchAssignModal.svelte'
@@ -15,6 +15,10 @@
   let charactersLoading = true
   let characterTasks = {} // { [characterId]: TaskWithStatus[] }
   let characterRowEl = null
+  
+  // Reset-timer integrations to auto-refresh on resets
+  let serverTimerIds = new Map() // serverName -> timerId
+  let prevWeeklyMsByServer = new Map() // serverName -> last weekly ms
   
   // Task Library filter
   let taskFilter = 'all' // 'all' | 'daily' | 'weekly'
@@ -40,6 +44,11 @@
   
   onMount(async () => {
     await Promise.all([loadTasks(), loadCharactersAndTasks()])
+    startServerTimers()
+  })
+  
+  onDestroy(() => {
+    stopServerTimers()
   })
   
   async function loadTasks() {
@@ -69,6 +78,8 @@
         }
       }
       characterTasks = map
+      // Restart timers when character set changes
+      startServerTimers()
     } catch (err) {
       console.error('Error loading characters:', err)
       characters = []
@@ -76,6 +87,59 @@
     } finally {
       charactersLoading = false
     }
+  }
+
+  function startServerTimers() {
+    // Collect unique server names from active characters
+    const servers = Array.from(new Set(characters.map(c => c.server_name).filter(Boolean)))
+    const current = new Set(servers)
+    // Stop timers for servers no longer present
+    for (const [server, id] of serverTimerIds) {
+      if (!current.has(server)) {
+        api.stopResetTimer(id)
+        serverTimerIds.delete(server)
+        prevWeeklyMsByServer.delete(server)
+      }
+    }
+    // Start timers for new servers
+    for (const server of servers) {
+      if (serverTimerIds.has(server)) continue
+      api.startResetTimer(server, (data) => {
+        try {
+          const prev = prevWeeklyMsByServer.has(server) ? prevWeeklyMsByServer.get(server) : Number.POSITIVE_INFINITY
+          prevWeeklyMsByServer.set(server, data.weekly?.totalMs ?? prev)
+          const crossed = prev > 1000 && (data.weekly?.totalMs ?? 0) <= 1000
+          if (crossed) {
+            // Reload tasks for characters on this server once per reset crossing
+            refreshCharactersOnServer(server)
+          }
+        } catch (e) {
+          console.error('Timer callback error for server', server, e)
+        }
+      }).then((timerId) => {
+        if (timerId) serverTimerIds.set(server, timerId)
+      }).catch(err => console.error('Failed to start timer for', server, err))
+    }
+  }
+
+  async function refreshCharactersOnServer(serverName) {
+    const ids = characters.filter(c => c.server_name === serverName).map(c => c.id)
+    const updates = await Promise.all(ids.map(async (id) => {
+      try { return [id, await api.getCharacterTasks(id)] } catch (_) { return [id, characterTasks[id] || []] }
+    }))
+    const map = { ...characterTasks }
+    for (const [id, tasks] of updates) {
+      map[id] = tasks
+    }
+    characterTasks = map
+  }
+
+  function stopServerTimers() {
+    for (const [, id] of serverTimerIds) {
+      api.stopResetTimer(id)
+    }
+    serverTimerIds.clear()
+    prevWeeklyMsByServer.clear()
   }
 
   function openCreate() {

@@ -418,9 +418,12 @@ class TaskService {
     }
 
     getWeekNumber(date) {
-        const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-        const pastDaysOfYear = (date - firstDayOfYear) / 86400000
-        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
+        // ISO week number to match Tuesday 05:00 weekly periods
+        const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+        // Thursday in current week decides the year
+        temp.setUTCDate(temp.getUTCDate() + 3 - (temp.getUTCDay() + 6) % 7)
+        const week1 = new Date(Date.UTC(temp.getUTCFullYear(), 0, 4))
+        return 1 + Math.round(((temp - week1) / 86400000 - 3 + (week1.getUTCDay() + 6) % 7) / 7)
     }
 
     // Get tasks with completion status for a character
