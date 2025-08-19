@@ -888,33 +888,33 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Test event type selection (War, Invasion, Company Event)
 - [x] Test date/time selection
 - [x] Test character selection
-- [ ] Test description input
-- [ ] Test RSVP status selection
-- [ ] Create event and verify it appears in list
+- [x] Test description input
+- [x] Test RSVP status selection
+- [x] Create event and verify it appears in list
 
 **Test 16: Event Editing**
-- [ ] Click edit button on existing event
-- [ ] Modify event details
-- [ ] Change date/time
-- [ ] Change participating character
-- [ ] Update RSVP status
-- [ ] Save changes and verify updates
+- [x] Click edit button on existing event
+- [x] Modify event details
+- [x] Change date/time
+- [x] Change participating character
+- [x] Update RSVP status
+- [x] Save changes and verify updates
 
 **Test 17: Event Deletion**
-- [ ] Click delete button on event
-- [ ] Verify confirmation dialog
-- [ ] Test deletion cancellation
-- [ ] Confirm deletion and verify event is removed
+- [x] Click delete button on event
+- [x] Verify confirmation dialog
+- [x] Test deletion cancellation
+- [x] Confirm deletion and verify event is removed
 
 ### 10.7 Calendar Integration Testing
 
 **Test 18: Calendar View**
-- [ ] Navigate to Calendar page
-- [ ] Verify calendar loads with current month
-- [ ] Test month navigation (previous/next)
-- [ ] Test view switching (month/week/day)
-- [ ] Verify events appear on calendar
-- [ ] Check event colors correspond to types
+- [x] Navigate to Calendar page
+- [x] Verify calendar loads with current month
+- [x] Test month navigation (previous/next)
+- [x] Test view switching (month/week/day)
+- [x] Verify events appear on calendar
+- [x] Check event colors correspond to types
 
 **Test 19: Calendar Event Creation**
 - [ ] Click on empty calendar date

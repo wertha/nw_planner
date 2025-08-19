@@ -337,27 +337,35 @@
       }
       
       await refreshCalendarEvents()
-      showEventModal = false
-      editingEvent = null
-      isCreating = false
+      // Reset modal state after a tick so the modal can close cleanly and not reuse old form state
+      queueMicrotask(() => {
+        showEventModal = false
+        editingEvent = null
+        isCreating = false
+      })
     } catch (error) {
       console.error('Error saving event:', error)
     }
   }
   
   function handleEventCancel() {
-    showEventModal = false
-    editingEvent = null
-    isCreating = false
+    // Defer clearing to avoid immediate reactivity clashes with the modal internals
+    queueMicrotask(() => {
+      showEventModal = false
+      editingEvent = null
+      isCreating = false
+    })
   }
   
   async function handleEventDelete(eventId) {
     try {
       await api.deleteEvent(eventId)
       await refreshCalendarEvents()
-      showEventModal = false
-      editingEvent = null
-      isCreating = false
+      queueMicrotask(() => {
+        showEventModal = false
+        editingEvent = null
+        isCreating = false
+      })
     } catch (error) {
       console.error('Error deleting event:', error)
     }
@@ -460,56 +468,7 @@
       </div>
     </div>
     
-    <!-- Calendar Controls -->
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center space-x-2">
-        <button
-          on:click={goToPrevious}
-          class="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-        >
-          ←
-        </button>
-        <button
-          on:click={goToNext}
-          class="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-        >
-          →
-        </button>
-        <button
-          on:click={goToToday}
-          class="px-3 py-1 bg-nw-blue text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          Today
-        </button>
-      </div>
-      
-      <div class="flex items-center space-x-2">
-        <button
-          on:click={() => changeView('dayGridMonth')}
-          class="px-3 py-1 rounded transition-colors {calendarView === 'dayGridMonth' 
-            ? 'bg-nw-blue text-white' 
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-        >
-          Month
-        </button>
-        <button
-          on:click={() => changeView('timeGridWeek')}
-          class="px-3 py-1 rounded transition-colors {calendarView === 'timeGridWeek' 
-            ? 'bg-nw-blue text-white' 
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-        >
-          Week
-        </button>
-        <button
-          on:click={() => changeView('timeGridDay')}
-          class="px-3 py-1 rounded transition-colors {calendarView === 'timeGridDay' 
-            ? 'bg-nw-blue text-white' 
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-        >
-          Day
-        </button>
-      </div>
-    </div>
+    
   </div>
   
   {#if loading}
