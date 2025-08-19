@@ -5,10 +5,10 @@ A lightweight, portable calendar and task management application specifically de
 ## Features
 
 - **Character Management**: Manage multiple characters across different servers and factions
-- **Task Tracking**: Track daily and weekly tasks with completion status and streaks
-- **Event Scheduling**: Schedule and manage guild events, wars, and other activities
-- **Server Time Support**: Automatic time zone conversion for different New World servers
-- **Reset Timers**: Visual countdown timers for daily (5 AM) and weekly (Tuesday 5 AM) resets
+- **Task Tracking**: Track daily and weekly tasks with completion status and streaks; per-character assignment; batch-assign is additive (won't remove existing assignees)
+- **Event Scheduling**: Schedule and manage wars, invasions, company events and custom items; Past vs Upcoming auto-classification; hardened modal UX
+- **Server Time Support**: Timezone-first implementation with robust UTC conversions; per-server and per-character time zone handling
+- **Reset Timers**: Visual countdown timers for daily (5 AM) and weekly (Tuesday 5 AM) resets; timers power dashboard and auto-refresh weekly tasks on reset
 - **Offline Operation**: Fully offline with local SQLite database storage
 - **Portable**: No installation required, runs as a standalone executable
 
@@ -18,7 +18,7 @@ A lightweight, portable calendar and task management application specifically de
 - **Backend**: Electron with Node.js
 - **Database**: SQLite for local storage
 - **Build System**: Vite for development and building
-- **Time Management**: date-fns for date manipulation
+- **Time Management**: date-fns + Intl for formatting and timezone-safe arithmetic
 
 ## Development
 
@@ -87,40 +87,20 @@ nw_planner/
 
 ### Managing Tasks
 
-The application comes with predefined daily and weekly tasks common to New World:
-
-**Daily Tasks:**
-- Daily Faction Missions
-- Territory Standing
-- Gypsum Orb Crafting
-- Daily Gathering
-- Expedition Run
-- OPR/Arena
-- Elite Chest Run
-
-**Weekly Tasks:**
-- Weekly Faction Missions
-- Weekly Expedition
-- Territory War
-- Company Activities
-- Weekly Gathering Goals
-- Weekly Crafting
+The application ships with a sensible starter set (e.g., Faction Bonus Missions, Gypsum from Faction Vendor, Mutated Dungeons, Sandworm, etc.). You can create, edit, and batch-assign tasks to characters. Batch “Assign to Characters” is additive and will not remove characters that are already assigned.
 
 ### Event Scheduling
 
-Schedule events with server time support:
-- Territory Wars
-- Company meetings
-- Guild activities
-- Custom events
+Create events with server-time support and per-character selection. The Events page separates **Upcoming** and **Past**. Past events are dimmed and listed below. The modal has been stabilized so repeated open/close/edit works reliably.
 
-### Server Time Zones
+### Server Time & Resets
 
-The application supports multiple New World servers with automatic time zone conversion:
-- Camelot (US West)
-- Valhalla (US East)
-- Hellheim (EU Central)
-- And more...
+All time math is timezone-first. Daily and weekly resets are computed in server-local time and converted to UTC instants. The Dashboard shows **Reset Timers** per server and automatically refreshes weekly tasks when the weekly reset occurs.
+
+### Dashboard
+
+- Left column stacks **Upcoming Events** above **Tasks** (with a character selector to view a specific character’s entire task list).
+- Right column shows **Reset Timers** for the unique servers of active characters.
 
 ## Building for Production
 
@@ -134,11 +114,10 @@ This will create a portable executable in the `dist` folder that can be run with
 
 ## Future Enhancements
 
-- Full calendar integration with FullCalendar
-- Advanced task assignment and tracking
+- Calendar filtering at scale (search + chip UI implemented)
+- Additional bulk ops for tasks/events
 - Export/import functionality
 - Enhanced notification system
-- Dark mode support
 - Company management features
 
 ## Contributing

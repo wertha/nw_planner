@@ -1227,6 +1227,22 @@ Changes
 - Moved legend below the calendar to prioritize the content area.
 - Stabilized modal open/close from Calendar by deferring state clear with `queueMicrotask` to avoid focus loss.
 
+### 10.8 Dashboard — Information density & layout
+
+Changes
+- Removed the non-functional “Active Characters” section.
+- Two-column layout: Left column stacks “Upcoming Events” above “Tasks”; right column shows “Reset Timers”.
+- Tasks section:
+  - Added character selector to switch which character’s tasks are displayed.
+  - Shows all tasks (daily and weekly) for the selected character.
+  - Completion toggles update only the selected character.
+- Reduced footprint across all cards: smaller headings, tighter spacing, smaller controls.
+
+Testing checklist (Dashboard)
+- Upcoming Events appears above Tasks and mirrors the events page list content.
+- Character selector switches task lists quickly and completion toggles persist per character.
+- Reset Timers remain visible and responsive in the right column.
+
 Testing checklist (Calendar)
 - With many characters, verify search filters chips and chip selection updates the events rendered.
 - All/None toggle selects/deselects and persists via store while navigating.
