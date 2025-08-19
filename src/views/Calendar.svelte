@@ -424,11 +424,13 @@
       </div>
       
       <!-- Character Filters (compact & clickable chips) -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Characters:</span>
-        <button on:click={toggleSelectAll} class="text-xs px-2 py-1 rounded {showAll ? 'bg-nw-blue text-white' : 'bg-gray-500 text-white'}">{showAll ? 'All' : 'None'}</button>
-        <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
-        <div class="overflow-x-auto whitespace-nowrap flex-1">
+      <div class="w-full">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Characters:</span>
+          <button on:click={toggleSelectAll} class="text-xs px-2 py-1 rounded {showAll ? 'bg-nw-blue text-white' : 'bg-gray-500 text-white'}">{showAll ? 'All' : 'None'}</button>
+          <input type="text" placeholder="Search..." value={characterSearch} on:input={onSearchInput} class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" />
+        </div>
+        <div class="overflow-x-auto whitespace-nowrap">
           <div class="inline-flex items-center gap-1 px-1">
             {#each filteredCharacters as character}
               {@const active = selectedCharacterIds.includes(character.id)}
