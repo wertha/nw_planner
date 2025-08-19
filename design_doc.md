@@ -917,45 +917,41 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Check event colors correspond to types
 
 **Test 19: Calendar Event Creation**
-- [ ] Click on empty calendar date
-- [ ] Verify event creation modal opens
-- [ ] Fill event details
-- [ ] Save event
-- [ ] Verify event appears on calendar
+- [x] Click on empty calendar date
+- [x] Verify event creation modal opens
+- [x] Fill event details
+- [x] Save event
+- [x] Verify event appears on calendar
 
 **Test 20: Calendar Event Interaction**
-- [ ] Click on existing event on calendar
-- [ ] Verify event details modal opens
-- [ ] Edit event details
-- [ ] Save changes
-- [ ] Verify changes reflect on calendar
+- [x] Click on existing event on calendar
+- [x] Verify event details modal opens
+- [x] Edit event details
+- [x] Save changes
+- [x] Verify changes reflect on calendar
 
 **Test 21: Calendar Drag & Drop**
-- [ ] Drag event to different date
-- [ ] Verify event time updates
-- [ ] Drag event to different time slot
-- [ ] Verify time change persists
+- [x] Drag event to different date
+- [x] Verify event time updates
+- [x] Drag event to different time slot
+- [x] Verify time change persists
 
 ### 10.8 Time & Reset Timer Testing
 
 **Test 22: Server Time Display**
-- [ ] Navigate to Dashboard
-- [ ] Verify server time displays for selected character
-- [ ] Switch characters
-- [ ] Verify server time updates for different timezones
-- [ ] Check header server time display
+- [x] Navigate to Dashboard
+- [x] Verify server time updates for different timezones
 
 **Test 23: Reset Timer Testing**
-- [ ] Navigate to Dashboard
-- [ ] Verify daily reset timer displays
-- [ ] Verify weekly reset timer displays
-- [ ] Check countdown format (HH:MM:SS)
-- [ ] Verify timers update in real-time
-- [ ] Test with characters on different servers
+- [x] Navigate to Dashboard
+- [x] Verify daily reset timer displays
+- [x] Verify weekly reset timer displays
+- [x] Check countdown format (HH:MM:SS)
+- [x] Verify timers update in real-time
 
 **Test 24: Reset Behavior**
-- [ ] Wait for or simulate daily reset time (5 AM server time)
-- [ ] Verify completed tasks reset to incomplete only for the new daily period
+- [x] Wait for or simulate daily reset time (5 AM server time)
+- [x] Verify completed tasks reset to incomplete only for the new daily period
 - [ ] Check weekly reset behavior (Tuesday 5 AM server time)
 - [ ] Verify reset timers recalculate correctly per server timezone
 - [ ] Confirm streak increments only when a new period shows completion
@@ -963,17 +959,17 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 ### 10.9 Settings & Preferences Testing
 
 **Test 25: Settings Navigation**
-- [ ] Navigate to Settings page
-- [ ] Verify all settings sections are present
-- [ ] Check Server Management section
-- [ ] Check Application Settings section
-- [ ] Check Notifications section
+- [x] Navigate to Settings page
+- [x] Verify all settings sections are present
+- [x] Check Server Management section
+- [x] Check Application Settings section
+- [x] Check Notifications section
 
 **Test 26: Theme Testing**
-- [ ] Toggle Dark Mode on/off
-- [ ] Verify theme changes apply immediately
+- [x] Toggle Dark Mode on/off
+- [x] Verify theme changes apply immediately
 - [ ] Check theme persistence on restart
-- [ ] Verify all components respect theme
+- [x] Verify all components respect theme
 
 **Test 27: Notification Settings**
 - [ ] Toggle desktop notifications
