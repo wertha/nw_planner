@@ -160,27 +160,27 @@
       <!-- Left column: Upcoming Events above Tasks -->
       <div class="lg:col-span-2 space-y-6">
         <div class="card">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events</h2>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Upcoming Events</h2>
           {#if upcomingEvents.length > 0}
-            <div class="space-y-3">
+            <div class="space-y-2">
               {#each upcomingEvents as event}
-                <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div class="p-2 rounded-lg border border-gray-200 dark:border-gray-600">
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
-                      <div class="flex items-center space-x-2">
-                        <span class="font-medium text-gray-900 dark:text-white">{event.name}</span>
-                        <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{event.event_type}</span>
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-900 dark:text-white text-sm">{event.name}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{event.event_type}</span>
                       </div>
-                      <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <div class="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                         📅 {event.time} - {event.server}
                         {#if event.location} • 📍 {event.location}{/if}
                       </div>
                       {#if event.description}
-                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">{event.description}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">{event.description}</div>
                       {/if}
                     </div>
                     <div class="ml-3">
-                      <span class="text-xs px-2 py-1 rounded-full {
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full {
                         event.participation_status === 'Confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200' :
                         event.participation_status === 'Signed Up' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200' :
                         event.participation_status === 'Tentative' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :
@@ -200,33 +200,33 @@
         </div>
 
         <div class="card">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Tasks</h2>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
             <div class="flex items-center gap-2">
-              <label for="dash-character" class="text-sm text-gray-600 dark:text-gray-400">Character</label>
-              <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-sm">
+              <label for="dash-character" class="text-xs text-gray-600 dark:text-gray-400">Character</label>
+              <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
                 {#each characters as c}
                   <option value={c.id}>{c.name}</option>
                 {/each}
               </select>
             </div>
           </div>
-          <div class="space-y-3">
+          <div class="space-y-2">
             {#each displayedTasks as task}
-              <div class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div class="flex items-center space-x-3">
+              <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div class="flex items-center gap-2">
                   <input 
                     type="checkbox" 
                     checked={task.completed}
                     on:change={() => toggleTaskCompletion(task)}
-                    class="w-5 h-5 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                   />
                   <div class="flex flex-col">
-                    <span class="text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">{task.type}</span>
+                    <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                    <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.type}</span>
                   </div>
                 </div>
-                <span class="text-sm priority-{task.priority.toLowerCase()}">{task.priority}</span>
+                <span class="text-xs priority-{task.priority.toLowerCase()}">{task.priority}</span>
               </div>
             {/each}
           </div>
@@ -236,30 +236,30 @@
       <!-- Reset Timers -->
       <div class="space-y-6">
         <div class="card">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Reset Timers</h2>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Reset Timers</h2>
           
           {#if Object.keys(resetTimers).length > 0}
-            <div class="space-y-6">
+            <div class="space-y-4">
               {#each Object.entries(resetTimers) as [serverName, timers]}
                 <div>
-                  <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">{serverName}</h3>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                  <div class="flex items-center justify-between mb-1">
+                    <h3 class="text-xs font-medium text-gray-700 dark:text-gray-300">{serverName}</h3>
+                    <div class="text-[10px] text-gray-500 dark:text-gray-400">
                       {timers.serverTime ? `${timers.serverTime.time} ${timers.serverTime.date}` : ''}
                     </div>
                   </div>
                   
-                  <div class="space-y-2">
+                  <div class="space-y-1">
                     <div class="flex justify-between items-center">
-                      <span class="text-sm text-gray-600 dark:text-gray-400">Daily Reset:</span>
-                      <div class="text-lg font-bold text-nw-blue">
+                      <span class="text-xs text-gray-600 dark:text-gray-400">Daily Reset:</span>
+                      <div class="text-base font-bold text-nw-blue">
                         {timers.daily ? timers.daily.formatted : '00:00:00'}
                       </div>
                     </div>
                     
                     <div class="flex justify-between items-center">
-                      <span class="text-sm text-gray-600 dark:text-gray-400">Weekly Reset:</span>
-                      <div class="text-lg font-bold text-orange-500">
+                      <span class="text-xs text-gray-600 dark:text-gray-400">Weekly Reset:</span>
+                      <div class="text-base font-bold text-orange-500">
                         {timers.weekly ? timers.weekly.formatted : '00:00:00'}
                       </div>
                     </div>
