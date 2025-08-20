@@ -9,6 +9,7 @@
   import Tasks from './views/Tasks.svelte'
   import Events from './views/Events.svelte'
   import Settings from './views/Settings.svelte'
+  import DialogRoot from './components/DialogRoot.svelte'
   
   let currentViewValue = 'dashboard'
   
@@ -49,6 +50,7 @@
     <div class="flex-1 overflow-y-auto p-6 min-w-0">
       <svelte:component this={getComponent(currentViewValue)} />
     </div>
+    <DialogRoot />
   </div>
 </main>
 

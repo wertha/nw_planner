@@ -100,10 +100,11 @@
     dispatch('close')
   }
   
-  function handleDelete() {
-    if (task?.id && confirm('Delete this task?')) {
-      dispatch('delete', task.id)
-    }
+  async function handleDelete() {
+    if (!task?.id) return
+    const { showConfirm } = await import('../stores/dialog.js')
+    const ok = await showConfirm('Delete this task?', 'Delete Task', 'Delete', 'Cancel')
+    if (ok) dispatch('delete', task.id)
   }
 
   function handleKeydown(event) {

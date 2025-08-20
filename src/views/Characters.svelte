@@ -53,13 +53,14 @@
   }
   
   async function deleteCharacter(character) {
-    if (confirm(`Are you sure you want to delete ${character.name}?`)) {
-      try {
-        await api.deleteCharacter(character.id)
-        await loadCharacters()
-      } catch (error) {
-        console.error('Error deleting character:', error)
-      }
+    const { showConfirm } = await import('../stores/dialog.js')
+    const ok = await showConfirm(`Are you sure you want to delete ${character.name}?`, 'Delete Character', 'Delete', 'Cancel')
+    if (!ok) return
+    try {
+      await api.deleteCharacter(character.id)
+      await loadCharacters()
+    } catch (error) {
+      console.error('Error deleting character:', error)
     }
   }
 </script>

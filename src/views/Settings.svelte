@@ -75,12 +75,14 @@
       await api.deleteAllData()
       showDeleteConfirmation = false
       // Show success message
-      alert('All data has been successfully deleted. The application will now be clean.')
+      const { showAlert } = await import('../stores/dialog.js')
+      await showAlert('All data has been successfully deleted. The application will now be clean.', 'Success', 'OK')
       // Optionally reload the page to reflect changes
       window.location.reload()
     } catch (error) {
       console.error('Error deleting data:', error)
-      alert('Failed to delete data. Please try again.')
+      const { showAlert } = await import('../stores/dialog.js')
+      await showAlert('Failed to delete data. Please try again.', 'Error', 'OK')
     } finally {
       deleteInProgress = false
     }
@@ -100,7 +102,8 @@
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Error exporting data:', error)
-      alert('Failed to export data. Please try again.')
+      const { showAlert } = await import('../stores/dialog.js')
+      await showAlert('Failed to export data. Please try again.', 'Error', 'OK')
     }
   }
 
@@ -150,19 +153,22 @@
       await loadServerStats()
     } catch (error) {
       console.error('Error updating server status:', error)
-      alert('Error updating server status: ' + error.message)
+      const { showAlert } = await import('../stores/dialog.js')
+      await showAlert('Error updating server status: ' + error.message, 'Error', 'OK')
     }
   }
 
   async function deleteServer(server) {
-    if (confirm(`Are you sure you want to delete server "${server.name}"? This action cannot be undone.`)) {
+    const { showConfirm, showAlert } = await import('../stores/dialog.js')
+    const ok = await showConfirm(`Are you sure you want to delete server "${server.name}"? This action cannot be undone.`, 'Delete Server', 'Delete', 'Cancel')
+    if (ok) {
       try {
         await api.deleteServer(server.id)
         await loadServers()
         await loadServerStats()
       } catch (error) {
         console.error('Error deleting server:', error)
-        alert('Error deleting server: ' + error.message)
+        await showAlert('Error deleting server: ' + error.message, 'Error', 'OK')
       }
     }
   }

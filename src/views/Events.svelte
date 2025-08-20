@@ -52,13 +52,14 @@
   }
   
   async function deleteEvent(eventId) {
-    if (confirm('Are you sure you want to delete this event?')) {
-      try {
-        await api.deleteEvent(eventId)
-        await loadData()
-      } catch (error) {
-        console.error('Error deleting event:', error)
-      }
+    const { showConfirm } = await import('../stores/dialog.js')
+    const ok = await showConfirm('Are you sure you want to delete this event?', 'Delete Event', 'Delete', 'Cancel')
+    if (!ok) return
+    try {
+      await api.deleteEvent(eventId)
+      await loadData()
+    } catch (error) {
+      console.error('Error deleting event:', error)
     }
   }
 

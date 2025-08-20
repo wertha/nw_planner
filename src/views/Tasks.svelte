@@ -220,7 +220,8 @@
 
   async function deleteTaskItem(task) {
     try {
-      const confirmed = confirm(`Delete task "${task.name}"?`)
+      const { showConfirm } = await import('../stores/dialog.js')
+      const confirmed = await showConfirm(`Delete task "${task.name}"?`, 'Delete Task', 'Delete', 'Cancel')
       if (!confirmed) return
       await api.deleteTask(task.id)
       await Promise.all([loadTasks(), loadCharactersAndTasks()])
@@ -243,7 +244,8 @@
   
   async function batchDelete() {
     if (selectedTaskIds.length === 0) return
-    const confirmed = confirm(`Delete ${selectedTaskIds.length} selected task(s)?`)
+    const { showConfirm } = await import('../stores/dialog.js')
+    const confirmed = await showConfirm(`Delete ${selectedTaskIds.length} selected task(s)?`, 'Delete Selected', 'Delete', 'Cancel')
     if (!confirmed) return
     try {
       for (const id of selectedTaskIds) {

@@ -180,9 +180,11 @@
     dispatch('cancel')
   }
   
-  function handleDelete() {
+  async function handleDelete() {
     if (editingEvent && editingEvent.id) {
-      if (confirm('Are you sure you want to delete this event?')) {
+      const { showConfirm } = await import('../stores/dialog.js')
+      const ok = await showConfirm('Are you sure you want to delete this event?', 'Delete Event', 'Delete', 'Cancel')
+      if (ok) {
         initializedForKey = null
         dispatch('delete', editingEvent.id)
       }
