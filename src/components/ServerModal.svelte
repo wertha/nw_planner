@@ -150,11 +150,16 @@
       handleClose()
     }
   }
+
+  // Prevent accidental close when finishing a selection-drag outside
+  let backdropMouseDownOnSelf = false
+  function onBackdropMouseDown(e) { backdropMouseDownOnSelf = e.target === e.currentTarget }
+  function onBackdropClick(e) { if (e.target === e.currentTarget && backdropMouseDownOnSelf) handleClose() }
 </script>
 
 {#if isOpen}
   <!-- Modal backdrop -->
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" role="dialog" aria-modal="true" on:click={handleClose} on:keydown={handleKeydown}>
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" role="dialog" aria-modal="true" on:mousedown={onBackdropMouseDown} on:click={onBackdropClick} on:keydown={handleKeydown}>
     <!-- Modal content -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4" role="document" on:click|stopPropagation on:keydown|stopPropagation>
       <div class="p-6">

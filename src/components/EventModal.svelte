@@ -197,8 +197,11 @@
     }
   }
   
+  // Prevent accidental close on selection-drag outside: require mousedown+click on backdrop
+  let backdropMouseDownOnSelf = false
+  function onBackdropMouseDown(e) { backdropMouseDownOnSelf = e.target === e.currentTarget }
   function handleBackdropClick(event) {
-    if (event.target === event.currentTarget) {
+    if (event.target === event.currentTarget && backdropMouseDownOnSelf) {
       handleCancel()
     }
   }
@@ -260,7 +263,7 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if show}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" on:click={handleBackdropClick} on:keydown={handleKeydown}>
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" on:mousedown={onBackdropMouseDown} on:click={handleBackdropClick} on:keydown={handleKeydown}>
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" role="document" on:click|stopPropagation on:keydown|stopPropagation>
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
