@@ -52,6 +52,17 @@ Daily Task Entity:
 
 #### 2.2.2 Weekly Tasks
 ```
+#### 2.2.3 One-time Tasks (NEW)
+```
+One-time Task Entity:
+- Task Name
+- Description
+- Priority Level
+- Rewards/Benefits
+- Character Assignment (specific characters or all)
+- Completion Behavior: when a character marks the task complete, the task is immediately unassigned from that character and disappears from their list
+- No reset period; no streak tracking
+```
 Weekly Task Entity:
 - Task Name
 - Description
@@ -155,7 +166,7 @@ CREATE TABLE tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
-    type TEXT CHECK(type IN ('daily', 'weekly')) NOT NULL,
+    type TEXT CHECK(type IN ('daily', 'weekly', 'one-time')) NOT NULL,
     priority TEXT CHECK(priority IN ('Low', 'Medium', 'High', 'Critical')) DEFAULT 'Medium',
     rewards TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -611,11 +622,16 @@ The Task system must deliver per-character, server-time-aware daily/weekly workf
   - Weekly: boundary Tuesday 05:00 server time; token `YYYY-Www`
 - DST handled by Intl; no hardcoded offsets
 - Streak increments when a new period is completed; removing a completion only affects that period
+ 
+Additional rules for One-time tasks:
+- One-time tasks do not participate in reset periods or streaks
+- When a character marks a one-time task complete, the assignment is deleted for that character (task disappears)
+- Marking incomplete is a no-op for one-time tasks (there is no completion record to revert)
 
 #### 9.4.4 API Contracts (Renderer → IPC → Service)
 Task CRUD
 ```
-createTask({ name, description?, type: 'daily'|'weekly', priority: 'Low'|'Medium'|'High'|'Critical', rewards? })
+createTask({ name, description?, type: 'daily'|'weekly'|'one-time', priority: 'Low'|'Medium'|'High'|'Critical', rewards? })
 getTasks(); getTasksByType(type); getTaskById(id);
 updateTask(id, partialTask); deleteTask(id);
 ```
@@ -645,13 +661,14 @@ initializeDefaultTasks(); // idempotent
 
 #### 9.4.5 UI/UX Plan
 - Tasks View
-  - Tabs: Daily | Weekly; search + priority filters
+  - Tabs: All | Daily | Weekly | One-time; search + priority filters
   - Actions: Create, Edit, Delete, Import Defaults
   - Assignment manager: pick characters to assign/unassign; bulk helpers
   - Priority chips; compact list for scale
   - Two-row layout:
     - Row 1 (horizontal scroll): character cards showing assigned Daily then Weekly tasks with quick-complete checkboxes. Mouse wheel scroll converts to horizontal scroll for usability.
     - Row 2 (vertical scroll): master Task Library as compact rows with small type/priority chips and Edit/Delete actions.
+  - One-time tasks appear in Row 1 under a separate section when assigned; checking them immediately unassigns and removes them from that character
 - Dashboard
   - “Today’s Tasks” from selected character(s) with checkboxes
   - Priority labels; completed styling
@@ -852,7 +869,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 **Test 12: Task View & Navigation**
 - [x] Navigate to Tasks page
 - [x] Verify default tasks are loaded or importable via "Import Defaults"
-- [x] Switch tabs/filters to view Daily vs Weekly tasks
+- [x] Switch tabs/filters to view Daily vs Weekly vs One-time tasks
 - [x] Verify priority chips render correctly (Low/Medium/High/Critical)
 - [x] Verify assignment UI allows selecting characters (per task)
  - [x] Verify Row 1 horizontal scroll works with mouse wheel (vertical wheel scroll translates to horizontal)
@@ -862,6 +879,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Click completion checkbox on a daily task in Dashboard
 - [x] Verify task is marked as completed (strike-through, chip updates)
 - [x] Repeat for a weekly task
+- [x] Assign a one-time task to a character; check the box and verify it disappears immediately from that character (unassigned)
 - [ ] Verify completion persists on refresh (same reset period)
 - [x] Uncheck to mark incomplete, verify persistence
 
@@ -870,6 +888,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Complete the same task on two different characters
 - [x] Verify each character’s completion state is independent
 - [ ] Verify reset period differences across servers with different timezones
+ - [x] Verify one-time task completion unassigns only for the character who completed it; other characters retain their assignment
 
 **Test 14.1: Assignment Management**
 - [x] Assign a task to a character via Tasks view assignment UI

@@ -264,11 +264,15 @@ class TaskService {
     async markTaskComplete(taskId, characterId, resetPeriod = null) {
         await this.ensureInitialized()
         
+        const taskType = this.getTaskType(taskId)
+        if (taskType === 'one-time') {
+            // For one-time tasks, completion unassigns the task from the character
+            const res = this.statements.removeTaskAssignment.run(taskId, characterId)
+            return res.changes > 0
+        }
         if (!resetPeriod) {
-            const taskType = this.getTaskType(taskId)
             resetPeriod = this.getResetPeriodForCharacter(characterId, taskType)
         }
-        
         const result = this.statements.markTaskComplete.run(
             taskId, characterId, resetPeriod, taskId, characterId, resetPeriod
         )
@@ -278,11 +282,14 @@ class TaskService {
     async markTaskIncomplete(taskId, characterId, resetPeriod = null) {
         await this.ensureInitialized()
         
+        const taskType = this.getTaskType(taskId)
+        if (taskType === 'one-time') {
+            // No-op; once unassigned, there's nothing to mark incomplete
+            return true
+        }
         if (!resetPeriod) {
-            const taskType = this.getTaskType(taskId)
             resetPeriod = this.getResetPeriodForCharacter(characterId, taskType)
         }
-        
         const result = this.statements.markTaskIncomplete.run(taskId, characterId, resetPeriod)
         return result.changes > 0
     }
@@ -290,11 +297,15 @@ class TaskService {
     async isTaskComplete(taskId, characterId, resetPeriod = null) {
         await this.ensureInitialized()
         
+        const taskType = this.getTaskType(taskId)
+        if (taskType === 'one-time') {
+            // Consider one-time task complete if it is no longer assigned to the character
+            const assigned = this.db.db.prepare('SELECT 1 FROM task_assignments WHERE task_id = ? AND character_id = ?').get(taskId, characterId)
+            return !assigned
+        }
         if (!resetPeriod) {
-            const taskType = this.getTaskType(taskId)
             resetPeriod = this.getResetPeriodForCharacter(characterId, taskType)
         }
-        
         const result = this.statements.isTaskComplete.get(taskId, characterId, resetPeriod)
         return result.completed > 0
     }
@@ -435,9 +446,12 @@ class TaskService {
         const weeklyResetPeriod = this.getResetPeriodForCharacter(characterId, 'weekly')
         
         return tasks.map(task => {
+            if (task.type === 'one-time') {
+                // One-time tasks remain visible until user completes them (which unassigns them)
+                return { ...task, completed: false, resetPeriod: null }
+            }
             const resetPeriod = task.type === 'weekly' ? weeklyResetPeriod : dailyResetPeriod
             const isComplete = this.statements.isTaskComplete.get(task.id, characterId, resetPeriod)
-            
             return {
                 ...task,
                 completed: isComplete.completed > 0,

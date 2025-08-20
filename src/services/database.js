@@ -84,7 +84,7 @@ class DatabaseService {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 description TEXT,
-                type TEXT CHECK(type IN ('daily', 'weekly')) NOT NULL,
+                type TEXT CHECK(type IN ('daily', 'weekly', 'one-time')) NOT NULL,
                 priority TEXT CHECK(priority IN ('Low', 'Medium', 'High', 'Critical')) DEFAULT 'Medium',
                 rewards TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -156,8 +156,45 @@ class DatabaseService {
                 END;
         `)
 
+        // Apply lightweight migrations
+        this.migrateTasksTableForOneTime()
+
         // Note: Default tasks are no longer automatically inserted to keep the app clean
         // Users can manually add tasks or import data if needed
+    }
+
+    migrateTasksTableForOneTime() {
+        try {
+            const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get()
+            const createSql = row?.sql || ''
+            if (!createSql.includes("'one-time'")) {
+                console.log('Migrating tasks table to include one-time type...')
+                // Temporarily disable foreign key checks for table rebuild
+                this.db.exec('PRAGMA foreign_keys=OFF;')
+                this.db.exec(`
+                    BEGIN TRANSACTION;
+                    CREATE TABLE tasks_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        type TEXT CHECK(type IN ('daily', 'weekly', 'one-time')) NOT NULL,
+                        priority TEXT CHECK(priority IN ('Low', 'Medium', 'High', 'Critical')) DEFAULT 'Medium',
+                        rewards TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    INSERT INTO tasks_new (id, name, description, type, priority, rewards, created_at)
+                        SELECT id, name, description, type, priority, rewards, created_at FROM tasks;
+                    DROP TABLE tasks;
+                    ALTER TABLE tasks_new RENAME TO tasks;
+                    COMMIT;
+                `)
+                this.db.exec('PRAGMA foreign_keys=ON;')
+                console.log('Tasks table migration complete.')
+            }
+        } catch (error) {
+            console.error('Tasks table migration failed:', error)
+            try { this.db.exec('PRAGMA foreign_keys=ON;') } catch (_) {}
+        }
     }
 
     insertDefaultTasks() {

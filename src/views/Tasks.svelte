@@ -21,10 +21,11 @@
   let prevWeeklyMsByServer = new Map() // serverName -> last weekly ms
   
   // Task Library filter
-  let taskFilter = 'all' // 'all' | 'daily' | 'weekly'
+  let taskFilter = 'all' // 'all' | 'daily' | 'weekly' | 'one-time'
   $: filteredTasks = taskFilter === 'all' ? tasks : tasks.filter(t => t.type === taskFilter)
   $: dailyCount = tasks.filter(t => t.type === 'daily').length
   $: weeklyCount = tasks.filter(t => t.type === 'weekly').length
+  $: oneTimeCount = tasks.filter(t => t.type === 'one-time').length
   
   function tabClasses(val) {
     const active = val === taskFilter
@@ -329,6 +330,23 @@
                   {/each}
                 </div>
               </div>
+              <!-- One-time -->
+              {#if (characterTasks[c.id] || []).some(t => t.type === 'one-time')}
+              <div class="mt-3">
+                <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">One-time</div>
+                <div class="space-y-2">
+                  {#each (characterTasks[c.id] || []).filter(t => t.type === 'one-time') as t}
+                    <div class="flex items-center justify-between">
+                      <label class="flex items-center space-x-2">
+                        <input type="checkbox" checked={t.completed} on:change={() => toggleCharacterTask(c.id, t)} class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:bg-gray-700 dark:border-gray-600" />
+                        <span class="text-sm text-gray-900 dark:text-gray-100 {t.completed ? 'line-through opacity-60' : ''}">{t.name}</span>
+                      </label>
+                      <span class="text-xs priority-{t.priority.toLowerCase()}">{t.priority}</span>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+              {/if}
             {/if}
           </div>
         {/each}
@@ -345,6 +363,7 @@
         <button class={tabClasses('all')} on:click={() => taskFilter = 'all'}>All ({tasks.length})</button>
         <button class={tabClasses('daily')} on:click={() => taskFilter = 'daily'}>Daily ({dailyCount})</button>
         <button class={tabClasses('weekly')} on:click={() => taskFilter = 'weekly'}>Weekly ({weeklyCount})</button>
+        <button class={tabClasses('one-time')} on:click={() => taskFilter = 'one-time'}>One-time ({oneTimeCount})</button>
       </div>
       <div class="space-x-2">
         <button class={smallBtn('secondary')} on:click={async () => { await api.initializeDefaultTasks(); await Promise.all([loadTasks(), loadCharactersAndTasks()]) }}>Import Defaults</button>

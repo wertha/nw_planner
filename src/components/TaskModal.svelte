@@ -19,7 +19,7 @@
   let errors = {}
   let initializedForId = null
   
-  const taskTypes = ['daily', 'weekly']
+  const taskTypes = ['daily', 'weekly', 'one-time']
   const priorities = ['Low', 'Medium', 'High', 'Critical']
   
   // Assignment state
