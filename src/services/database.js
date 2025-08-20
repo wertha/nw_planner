@@ -253,16 +253,23 @@ class DatabaseService {
     async deleteAllData() {
         await this.ensureInitialized()
         
-        const transaction = this.db.transaction([
-            'DELETE FROM task_completions',
-            'DELETE FROM task_assignments', 
-            'DELETE FROM events',
-            'DELETE FROM tasks',
-            'DELETE FROM characters',
-            'DELETE FROM servers'
-        ])
+        const deleteTaskCompletions = this.db.prepare('DELETE FROM task_completions')
+        const deleteTaskAssignments = this.db.prepare('DELETE FROM task_assignments')
+        const deleteEvents = this.db.prepare('DELETE FROM events')
+        const deleteTasks = this.db.prepare('DELETE FROM tasks')
+        const deleteCharacters = this.db.prepare('DELETE FROM characters')
+        const deleteServers = this.db.prepare('DELETE FROM servers')
         
-        transaction()
+        const tx = this.db.transaction(() => {
+            deleteTaskCompletions.run()
+            deleteTaskAssignments.run()
+            deleteEvents.run()
+            deleteTasks.run()
+            deleteCharacters.run()
+            deleteServers.run()
+        })
+        
+        tx()
         
         console.log('All data deleted from database')
         return true
