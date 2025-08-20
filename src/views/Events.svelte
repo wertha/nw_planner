@@ -151,7 +151,7 @@
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
       <div class="flex space-x-2">
         <button class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={openCreate}>Add New Event</button>
-        <button class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={async () => { try { await api.createWarEvent({ name: 'War', event_time: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }) ; await loadData() } catch (e) { console.error('Quick War failed', e) } }}>Quick War</button>
+        <button class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={async () => { try { const inOneHour = new Date(Date.now() + 60 * 60 * 1000).toISOString(); await api.createWarEvent({ name: 'War', event_time: inOneHour, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }); await loadData() } catch (e) { console.error('Quick War failed', e) } }}>Quick War</button>
       </div>
       
       <!-- Filters -->
