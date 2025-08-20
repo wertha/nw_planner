@@ -13,7 +13,9 @@
   
   onMount(async () => {
     await loadData()
-    startResetTimers()
+    if (selectedCharacterServers.length > 0) {
+      startResetTimers()
+    }
     
     // Cleanup on unmount
     return () => {
@@ -249,7 +251,14 @@
         <div class="card">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Reset Timers</h2>
           
-          {#if Object.keys(resetTimers).length > 0}
+          {#if characters.length === 0}
+            <div class="text-center text-gray-500 dark:text-gray-400 py-4">
+              <p class="text-sm">Add a character to see server reset timers.</p>
+              <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => window.location.hash = '#/characters'}>
+                Create your first character →
+              </button>
+            </div>
+          {:else if Object.keys(resetTimers).length > 0}
             <div class="space-y-4">
               {#each Object.entries(resetTimers) as [serverName, timers]}
                 <div>
