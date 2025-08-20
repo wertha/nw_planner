@@ -3,7 +3,6 @@
   import { currentView } from '../stores/ui'
   import api from '../services/api.js'
   import EventModal from '../components/EventModal.svelte'
-  import { showConfirm } from '../stores/dialog.js'
   
   let loading = true
   let characters = []
@@ -113,10 +112,14 @@
     }
   }
 
-  async function quickDeleteEvent(ev) {
-    const ok = await showConfirm('Delete this event?', 'Delete Event', 'Delete', 'Cancel')
-    if (!ok) return
-    try { await api.deleteEvent(ev.id); await loadData() } catch (e) { console.error('Delete failed', e) }
+  function rsvpClass(status) {
+    return status === 'Confirmed'
+      ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+      : status === 'Signed Up'
+      ? 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
+      : status === 'Tentative'
+      ? 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200'
+      : 'bg-gray-50 border-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
   }
 
   async function startResetTimers() {
@@ -217,7 +220,7 @@
           {#if upcomingEvents.length > 0}
             <div class="space-y-2">
               {#each upcomingEvents as event}
-                <div class="p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div class="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" role="button" tabindex="0" on:click={() => openEditEvent(event)} on:keydown={(e)=> (e.key==='Enter'||e.key===' ') && openEditEvent(event)}>
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <div class="flex items-center gap-2">
@@ -232,19 +235,17 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">{event.description}</div>
                       {/if}
                     </div>
-                    <div class="ml-3 flex items-center gap-2">
+                    <div class="ml-3 flex items-center gap-2" on:click|stopPropagation>
                       <select 
                         value={event.participation_status || 'Signed Up'}
                         on:change={(e) => updateRsvpStatus(event.id, e.target.value)}
-                        class="text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                        class={`text-[10px] px-1.5 py-0.5 rounded border ${rsvpClass(event.participation_status || 'Signed Up')}`}
                       >
                         <option value="Signed Up">Signed Up</option>
                         <option value="Confirmed">Confirmed</option>
                         <option value="Tentative">Tentative</option>
                         <option value="Absent">Absent</option>
                       </select>
-                      <button class="btn-secondary text-[10px] px-2 py-1" on:click={() => openEditEvent(event)}>Edit</button>
-                      <button class="btn-danger text-[10px] px-2 py-1" on:click={() => quickDeleteEvent(event)}>Delete</button>
                     </div>
                   </div>
                 </div>
