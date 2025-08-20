@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import api from '../services/api.js'
   import EventModal from '../components/EventModal.svelte'
+  import { currentView } from '../stores/ui'
   
   let loading = true
   let events = []
@@ -138,7 +139,7 @@
     <div class="mb-4 rounded-md border border-yellow-300 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-3">
       <p class="text-sm text-yellow-900 dark:text-yellow-200">
         You need at least one character before creating events. 
-        <button class="underline text-nw-blue hover:text-nw-blue-dark" on:click={() => window.location.hash = '#/characters'}>
+        <button class="underline text-nw-blue hover:text-nw-blue-dark" on:click={() => currentView.set('characters')}>
           Create your first character →
         </button>
       </p>
