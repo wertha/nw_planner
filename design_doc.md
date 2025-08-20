@@ -968,7 +968,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 **Test 26: Theme Testing**
 - [x] Toggle Dark Mode on/off
 - [x] Verify theme changes apply immediately
-- [ ] Check theme persistence on restart
+- [x] Check theme persistence on restart
 - [x] Verify all components respect theme
 
 **Test 27: Notification Settings**
@@ -982,25 +982,25 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 ### 10.10 Header Upcoming Events (NEW)
 
 **Test 28: Upcoming Events in Header**
-- [ ] Header shows up to three upcoming events ordered by soonest
-- [ ] Each event displays name, type, optional server, and local date/time
-- [ ] When creating/updating/deleting an event, header refreshes within a minute or on window focus
-- [ ] When there are no upcoming events, header shows a friendly empty state
+- [x] Header shows up to three upcoming events ordered by soonest
+- [x] Each event displays name, type, optional server, and local date/time
+- [x] When creating/updating/deleting an event, header refreshes within a minute or on window focus
+- [x] When there are no upcoming events, header shows a friendly empty state
 
 ### 10.11 Error Handling & Edge Cases
 
 **Test 29: Form Validation**
-- [ ] Try creating character with empty name
-- [ ] Try creating server with duplicate name
-- [ ] Try creating event with invalid date
-- [ ] Verify proper error messages display
-- [ ] Test field validation on all forms
+- [x] Try creating character with empty name
+- [x] Try creating server with duplicate name
+- [x] Try creating event with invalid date
+- [x] Verify proper error messages display
+- [x] Test field validation on all forms
 
 **Test 30: Data Consistency**
-- [ ] Delete server with associated characters
-- [ ] Verify proper dependency handling
-- [ ] Delete character with associated events
-- [ ] Check data integrity maintenance
+- [x] Delete server with associated characters
+- [x] Verify proper dependency handling
+- [x] Delete character with associated events
+- [x] Check data integrity maintenance
 
 **Test 31: Performance & Stability**
 - [ ] Create multiple characters (10+)
@@ -1020,11 +1020,11 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [ ] Confirm clean build output with minimal warnings (accessibility warnings resolved)
 
 **Test 33: Database Persistence**
-- [ ] Create test data (characters, servers, events)
-- [ ] Close application
-- [ ] Restart application
-- [ ] Verify all data persists correctly
-- [ ] Test database initialization on first run
+- [x] Create test data (characters, servers, events)
+- [x] Close application
+- [x] Restart application
+- [x] Verify all data persists correctly
+- [x] Test database initialization on first run
 
 ### 10.13 Integration Testing
 

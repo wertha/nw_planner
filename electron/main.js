@@ -322,7 +322,8 @@ function createWindow() {
         mainWindow.loadURL('http://localhost:5173')
         mainWindow.webContents.openDevTools()
     } else {
-        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+        // Point to Vite's renderer output (see vite.config outDir)
+        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 
     // Show window when ready

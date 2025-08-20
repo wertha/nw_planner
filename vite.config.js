@@ -5,7 +5,8 @@ export default defineConfig({
   plugins: [svelte()],
   base: './',
   build: {
-    outDir: 'dist',
+    // Use a renderer-specific folder to avoid clobbering electron-builder output dir
+    outDir: 'renderer',
     rollupOptions: {
       input: {
         main: './index.html'

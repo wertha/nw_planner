@@ -6,15 +6,15 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && electron-builder",
+    "build": "vite build",
     "preview": "vite preview",
     "electron": "cross-env NODE_ENV=production electron .",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build-electron": "vite build",
-    "dist": "npm run build-electron && electron-builder",
-    "dist-win": "npm run build-electron && electron-builder --win",
-    "dist-mac": "npm run build-electron && electron-builder --mac",
-    "dist-linux": "npm run build-electron && electron-builder --linux"
+    "dist": "npm run build && electron-builder",
+    "dist-win": "npm run build && electron-builder --win",
+    "dist-mac": "npm run build && electron-builder --mac",
+    "dist-linux": "npm run build && electron-builder --linux"
   },
   "keywords": [
     "electron",
@@ -55,11 +55,13 @@
     "appId": "com.newworld.planner",
     "productName": "New World Planner",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "files": [
       "electron/**/*",
-      "dist/**/*"
+      "renderer/**/*",
+      "assets/**/*",
+      "src/services/**/*"
     ],
     "win": {
       "target": "portable"
