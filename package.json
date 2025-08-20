@@ -14,7 +14,8 @@
     "dist": "npm run build && electron-builder",
     "dist-win": "npm run build && electron-builder --win",
     "dist-mac": "npm run build && electron-builder --mac",
-    "dist-linux": "npm run build && electron-builder --linux"
+    "dist-linux": "npm run build && electron-builder --linux",
+    "gen-icons": "node scripts/generate-icons.js"
   },
   "keywords": [
     "electron",
@@ -35,6 +36,7 @@
     "electron": "^28.0.0",
     "electron-builder": "^24.0.0",
     "electron-rebuild": "^3.2.9",
+    "icon-gen": "^5.0.0",
     "postcss": "^8.4.0",
     "svelte": "^4.0.0",
     "tailwindcss": "^3.4.0",
@@ -64,13 +66,16 @@
       "src/services/**/*"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "assets/icon.ico"
     },
     "mac": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "assets/icon.icns"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "assets/icon.png"
     },
     "portable": {
       "artifactName": "NewWorldPlanner-${version}-portable.exe"

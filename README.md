@@ -102,15 +102,31 @@ All time math is timezone-first. Daily and weekly resets are computed in server-
 - Left column stacks **Upcoming Events** above **Tasks** (with a character selector to view a specific character’s entire task list).
 - Right column shows **Reset Timers** for the unique servers of active characters.
 
-## Building for Production
+## Build & Release
 
-To create a portable executable:
+Local run/build:
 
 ```bash
-npm run dist
+npm ci
+npm run build
+npm run electron
 ```
 
-This will create a portable executable in the `dist` folder that can be run without installation.
+Package locally:
+
+```bash
+npx electron-builder --win
+```
+
+### CI Releases (GitHub Actions)
+- Tag a commit with `vX.Y.Z` to trigger the Release workflow.
+- The workflow builds Windows portable `.exe`, plus macOS/Linux artifacts, and attaches them to the GitHub Release.
+
+### App Icon
+Place logo files at:
+- `assets/icon.png`
+- `assets/icon.ico`
+- `assets/icon.icns`
 
 ## Future Enhancements
 
