@@ -112,14 +112,14 @@
     }
   }
 
-  function rsvpClass(status) {
+  function rsvpDotClass(status) {
     return status === 'Confirmed'
-      ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+      ? 'bg-green-500'
       : status === 'Signed Up'
-      ? 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
+      ? 'bg-blue-500'
       : status === 'Tentative'
-      ? 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200'
-      : 'bg-gray-50 border-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+      ? 'bg-yellow-500'
+      : 'bg-gray-500'
   }
 
   async function startResetTimers() {
@@ -236,15 +236,16 @@
                       {/if}
                     </div>
                     <div class="ml-3 flex items-center gap-2" on:click|stopPropagation>
+                      <span class={`w-2 h-2 rounded-full ${rsvpDotClass(event.participation_status || 'Signed Up')}`} aria-hidden="true"></span>
                       <select 
                         value={event.participation_status || 'Signed Up'}
                         on:change={(e) => updateRsvpStatus(event.id, e.target.value)}
-                        class={`text-[10px] px-1.5 py-0.5 rounded border ${rsvpClass(event.participation_status || 'Signed Up')}`}
+                        class="text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
                       >
-                        <option value="Signed Up">Signed Up</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Tentative">Tentative</option>
-                        <option value="Absent">Absent</option>
+                        <option value="Signed Up">🟦 Signed Up</option>
+                        <option value="Confirmed">🟩 Confirmed</option>
+                        <option value="Tentative">🟨 Tentative</option>
+                        <option value="Absent">⬛ Absent</option>
                       </select>
                     </div>
                   </div>
