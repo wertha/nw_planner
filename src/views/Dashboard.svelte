@@ -197,6 +197,27 @@
       displayedTasks = []
     }
   }
+
+  // Priority sorting helper for tasks
+  function getPriorityRank(p) {
+    switch ((p || '').toLowerCase()) {
+      case 'critical': return 3
+      case 'high': return 2
+      case 'medium': return 1
+      default: return 0
+    }
+  }
+
+  // Split and sort tasks by type and priority
+  $: dailyTasks = (displayedTasks || [])
+    .filter(t => t.type === 'daily')
+    .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
+  $: weeklyTasks = (displayedTasks || [])
+    .filter(t => t.type === 'weekly')
+    .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
+  $: oneTimeTasks = (displayedTasks || [])
+    .filter(t => t.type === 'one-time')
+    .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
 </script>
 
 <div class="max-w-7xl mx-auto">
@@ -290,24 +311,78 @@
                 </button>
               </div>
             {:else}
-              <div class="space-y-2">
-                {#each displayedTasks as task}
-                  <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                    <div class="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        checked={task.completed}
-                        on:change={() => toggleTaskCompletion(task)}
-                        class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      />
-                      <div class="flex flex-col">
-                        <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
-                        <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.type}</span>
-                      </div>
+              <div class="space-y-4">
+                {#if dailyTasks.length > 0}
+                  <div>
+                    <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Daily</div>
+                    <div class="space-y-2">
+                      {#each dailyTasks as task}
+                        <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <div class="flex items-center gap-2">
+                            <input 
+                              type="checkbox" 
+                              checked={task.completed}
+                              on:change={() => toggleTaskCompletion(task)}
+                              class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <div class="flex flex-col">
+                              <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                              <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                            </div>
+                          </div>
+                        </div>
+                      {/each}
                     </div>
-                    <span class="text-xs priority-{task.priority.toLowerCase()}">{task.priority}</span>
                   </div>
-                {/each}
+                {/if}
+
+                {#if weeklyTasks.length > 0}
+                  <div>
+                    <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Weekly</div>
+                    <div class="space-y-2">
+                      {#each weeklyTasks as task}
+                        <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <div class="flex items-center gap-2">
+                            <input 
+                              type="checkbox" 
+                              checked={task.completed}
+                              on:change={() => toggleTaskCompletion(task)}
+                              class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <div class="flex flex-col">
+                              <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                              <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                            </div>
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if oneTimeTasks.length > 0}
+                  <div>
+                    <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">One-time</div>
+                    <div class="space-y-2">
+                      {#each oneTimeTasks as task}
+                        <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <div class="flex items-center gap-2">
+                            <input 
+                              type="checkbox" 
+                              checked={task.completed}
+                              on:change={() => toggleTaskCompletion(task)}
+                              class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <div class="flex flex-col">
+                              <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                              <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                            </div>
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
               </div>
             {/if}
           {/if}
