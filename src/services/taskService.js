@@ -53,6 +53,7 @@ class TaskService {
                 ORDER BY t.priority DESC, t.name ASC
             `),
             getCharacterTimezone: await this.db.prepare('SELECT server_timezone FROM characters WHERE id = ?'),
+            getAllCharactersWithTimezone: await this.db.prepare('SELECT id, server_timezone FROM characters'),
             
             // Task completions
             markTaskComplete: await this.db.prepare(`
@@ -86,6 +87,11 @@ class TaskService {
                 SELECT COUNT(*) as completed
                 FROM task_completions
                 WHERE task_id = ? AND character_id = ? AND reset_period = ?
+            `),
+            deleteCompletionsForTypeAndPeriod: await this.db.prepare(`
+                DELETE FROM task_completions
+                WHERE character_id = ? AND reset_period = ?
+                  AND task_id IN (SELECT id FROM tasks WHERE type = ?)
             `),
             
             // Statistics
@@ -345,6 +351,22 @@ class TaskService {
         }
         
         return this.statements.getCompletionStats.all(resetPeriod)
+    }
+
+    // Manual reset helpers
+    async resetCurrentPeriodForAllCharacters(taskType) {
+        await this.ensureInitialized()
+        if (taskType !== 'daily' && taskType !== 'weekly') return false
+        const rows = this.statements.getAllCharactersWithTimezone.all()
+        const runDelete = this.statements.deleteCompletionsForTypeAndPeriod
+        const tx = this.db.db.transaction((characters) => {
+            for (const ch of characters) {
+                const period = this.getResetPeriodForCharacter(ch.id, taskType)
+                runDelete.run(ch.id, period, taskType)
+            }
+        })
+        tx(rows)
+        return true
     }
 
     // Helper methods

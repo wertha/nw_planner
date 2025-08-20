@@ -540,6 +540,25 @@ class ApiService {
         }
     }
 
+    async manualResetTasks(type) {
+        await this.init()
+        if (this.isElectron) {
+            return await this.electronAPI.tasks.manualReset(type)
+        } else {
+            // Web mode: simulate by clearing completion keys for current period
+            const characters = this.getMockCharacters()
+            const tasks = this.getMockTasks().filter(t => t.type === type)
+            for (const c of characters) {
+                const period = type === 'weekly' ? this.getWeeklyResetPeriod() : new Date().toISOString().split('T')[0]
+                for (const t of tasks) {
+                    const key = `task_completion_${t.id}_${c.id}_${period}`
+                    localStorage.removeItem(key)
+                }
+            }
+            return true
+        }
+    }
+
     // Database operations
     async isDatabaseReady() {
         await this.init()

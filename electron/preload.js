@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         setTaskAssignments: (taskId, characterIds) => ipcRenderer.invoke('task:setTaskAssignments', taskId, characterIds),
         getAssignedCharactersForTask: (taskId) => ipcRenderer.invoke('task:getAssignedCharactersForTask', taskId)
         , initializeDefaults: () => ipcRenderer.invoke('task:initializeDefaults')
+        , manualReset: (type) => ipcRenderer.invoke('task:manualReset', type)
     },
     
     // Event operations

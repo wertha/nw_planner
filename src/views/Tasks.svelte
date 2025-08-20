@@ -279,7 +279,13 @@
 
   <!-- Row 1: Character Cards (horizontal scroll) -->
   <div class="mb-6">
-    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">Assigned Tasks by Character</h2>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Assigned Tasks by Character</h2>
+      <div class="flex items-center gap-2">
+        <button class={smallBtn('secondary')} title="Manually reset daily completions" on:click={async ()=>{ try { await api.manualResetTasks('daily'); await loadCharactersAndTasks() } catch(e){ console.error(e)} }}>Reset Daily</button>
+        <button class={smallBtn('secondary')} title="Manually reset weekly completions" on:click={async ()=>{ try { await api.manualResetTasks('weekly'); await loadCharactersAndTasks() } catch(e){ console.error(e)} }}>Reset Weekly</button>
+      </div>
+    </div>
     {#if charactersLoading}
       <div class="flex items-center justify-center h-32">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-nw-blue"></div>

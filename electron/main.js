@@ -209,6 +209,11 @@ function setupIpcHandlers() {
     ipcMain.handle('task:getStats', async () => {
         return await taskService.getTaskStats()
     })
+
+    // Manual resets
+    ipcMain.handle('task:manualReset', async (event, type) => {
+        return await taskService.resetCurrentPeriodForAllCharacters(type)
+    })
     
     // Task defaults initialization (manual trigger)
     ipcMain.handle('task:initializeDefaults', async () => {
