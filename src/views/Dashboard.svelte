@@ -202,6 +202,7 @@
         <div class="card">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
+            {#if characters.length > 0}
             <div class="flex items-center gap-2">
               <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
               <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
@@ -210,26 +211,36 @@
                 {/each}
               </select>
             </div>
+            {/if}
           </div>
-          <div class="space-y-2">
-            {#each displayedTasks as task}
-              <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div class="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    checked={task.completed}
-                    on:change={() => toggleTaskCompletion(task)}
-                    class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                  />
-                  <div class="flex flex-col">
-                    <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
-                    <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.type}</span>
+          {#if characters.length === 0}
+            <div class="text-center text-gray-500 dark:text-gray-400 py-4">
+              <p class="text-sm">No characters yet.</p>
+              <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => window.location.hash = '#/characters'}>
+                Create your first character →
+              </button>
+            </div>
+          {:else}
+            <div class="space-y-2">
+              {#each displayedTasks as task}
+                <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div class="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={task.completed}
+                      on:change={() => toggleTaskCompletion(task)}
+                      class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                      <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.type}</span>
+                    </div>
                   </div>
+                  <span class="text-xs priority-{task.priority.toLowerCase()}">{task.priority}</span>
                 </div>
-                <span class="text-xs priority-{task.priority.toLowerCase()}">{task.priority}</span>
-              </div>
-            {/each}
-          </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       </div>
       
