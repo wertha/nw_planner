@@ -435,33 +435,26 @@ Layout Structure:
 
 ## 7. Build and Distribution
 
-### 7.1 Build Configuration
-```javascript
-// electron-builder configuration for portable builds
+### 7.1 Build Configuration (UPDATED)
+```json
 {
   "appId": "com.newworld.planner",
   "productName": "New World Planner",
-  "directories": {
-    "output": "dist"
-  },
+  "directories": { "output": "release" },
   "files": [
-    "dist-electron/**/*",
-    "dist/**/*"
+    "electron/**/*",
+    "renderer/**/*",
+    "assets/**/*",
+    "src/services/**/*"
   ],
-  "win": {
-    "target": "portable"
-  },
-  "mac": {
-    "target": "dir"
-  },
-  "linux": {
-    "target": "AppImage"
-  },
-  "portable": {
-    "artifactName": "NewWorldPlanner-${version}-portable.exe"
-  }
+  "win": { "target": "portable" },
+  "mac": { "target": "dir" },
+  "linux": { "target": "AppImage" },
+  "portable": { "artifactName": "NewWorldPlanner-${version}-portable.exe" }
 }
 ```
+Notes:
+- Vite output is `renderer/` and `electron/main.js` loads from it in production. Packaging output is `release/`. Included `src/services` for dynamic imports.
 
 ### 7.2 Development Workflow
 - Vite for fast development builds
@@ -627,6 +620,7 @@ Additional rules for One-time tasks:
 - One-time tasks do not participate in reset periods or streaks
 - When a character marks a one-time task complete, the assignment is deleted for that character (task disappears)
 - Marking incomplete is a no-op for one-time tasks (there is no completion record to revert)
+ - Manual reset controls are available on the Tasks page (Daily/Weekly) to clear current-period completions
 
 #### 9.4.4 API Contracts (Renderer → IPC → Service)
 Task CRUD
@@ -669,6 +663,7 @@ initializeDefaultTasks(); // idempotent
     - Row 1 (horizontal scroll): character cards showing assigned Daily then Weekly tasks with quick-complete checkboxes. Mouse wheel scroll converts to horizontal scroll for usability.
     - Row 2 (vertical scroll): master Task Library as compact rows with small type/priority chips and Edit/Delete actions.
   - One-time tasks appear in Row 1 under a separate section when assigned; checking them immediately unassigns and removes them from that character
+  - Header quick actions: “Reset Daily” and “Reset Weekly”
 - Dashboard
   - “Today’s Tasks” from selected character(s) with checkboxes
   - Priority labels; completed styling
@@ -882,6 +877,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Assign a one-time task to a character; check the box and verify it disappears immediately from that character (unassigned)
 - [ ] Verify completion persists on refresh (same reset period)
 - [x] Uncheck to mark incomplete, verify persistence
+ - [x] Manual reset buttons: verify Daily clears current-day completions and Weekly clears current-week completions across all characters (assignments stay)
 
 **Test 14: Multi-Character Task Testing**
 - [x] Verify only tasks assigned to each character appear where appropriate
@@ -918,12 +914,14 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Change participating character
 - [x] Update RSVP status
 - [x] Save changes and verify updates
+ - [x] Dashboard: click upcoming event to open edit modal; RSVP edits persist; dropdown styling remains stable
 
 **Test 17: Event Deletion**
 - [x] Click delete button on event
 - [x] Verify confirmation dialog
 - [x] Test deletion cancellation
 - [x] Confirm deletion and verify event is removed
+ - [x] Deletion uses custom confirm dialog (no native alerts)
 
 ### 10.7 Calendar Integration Testing
 
@@ -975,6 +973,8 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [ ] Verify reset timers recalculate correctly per server timezone
 - [ ] Confirm streak increments only when a new period shows completion
 
+### 10.11 Error Handling & Edge Cases (UPDATED)
+
 ### 10.9 Settings & Preferences Testing
 
 **Test 25: Settings Navigation**
@@ -1006,8 +1006,6 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] When creating/updating/deleting an event, header refreshes within a minute or on window focus
 - [x] When there are no upcoming events, header shows a friendly empty state
 
-### 10.11 Error Handling & Edge Cases
-
 **Test 29: Form Validation**
 - [x] Try creating character with empty name
 - [x] Try creating server with duplicate name
@@ -1022,6 +1020,10 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Check data integrity maintenance
 
 **Test 31: Performance & Stability**
+**Test 32: Modal Interaction Stability**
+- [x] Drag-select inside inputs; release outside: modal remains open (backdrop requires mousedown+click)
+- [x] ESC closes modal; backdrop click closes when intended
+- [x] In-app dialogs don’t steal focus
 - [ ] Create multiple characters (10+)
 - [ ] Create multiple events (50+)
 - [ ] Test application responsiveness
@@ -1191,6 +1193,14 @@ API and service changes
 UI updates
 - Dashboard uses server objects (name+timezone) to compute initial timers and start live timers. No name→timezone lookup on the client anymore.
 - A temporary Settings preview was used to validate calculations and has been removed after verification.
+- Quick War schedules one hour from now.
+
+Custom Dialogs (NEW)
+- Replaced native `alert/confirm` with an in-app dialog component to avoid Electron focus issues.
+- All warnings/confirmations now use in-app dialogs.
+
+Modal Backdrop Interaction (NEW)
+- Backdrop close requires mousedown and click on the backdrop element, preventing accidental closes when drag-selecting text that ends outside the input.
 
 Correctness notes
 - Daily reset is computed as the next 05:00 in the server’s local day using `zonedTimeToUtc` (roll forward one day if already past).
