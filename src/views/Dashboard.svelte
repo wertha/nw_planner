@@ -2,6 +2,8 @@
   import { onMount } from 'svelte'
   import { currentView } from '../stores/ui'
   import api from '../services/api.js'
+  import EventModal from '../components/EventModal.svelte'
+  import { showConfirm } from '../stores/dialog.js'
   
   let loading = true
   let characters = []
@@ -11,6 +13,8 @@
   let activeTimers = []
   let selectedCharacterServers = [] // array of { name, timezone }
   let selectedCharacterId = null
+  let showEventModal = false
+  let editingEvent = null
   
   onMount(async () => {
     await loadData()
@@ -67,6 +71,52 @@
     } finally {
       loading = false
     }
+  }
+
+  async function updateRsvpStatus(eventId, newStatus) {
+    try {
+      await api.updateEventRsvp(eventId, newStatus)
+      await loadData()
+    } catch (error) {
+      console.error('Error updating RSVP:', error)
+    }
+  }
+
+  function openEditEvent(ev) {
+    editingEvent = ev
+    showEventModal = true
+  }
+
+  async function handleEventSave(e) {
+    const data = e.detail
+    try {
+      if (editingEvent) {
+        await api.updateEvent(editingEvent.id, data)
+      }
+      showEventModal = false
+      editingEvent = null
+      await loadData()
+    } catch (err) {
+      console.error('Error saving event:', err)
+    }
+  }
+
+  async function handleEventDelete(e) {
+    const id = e.detail
+    try {
+      await api.deleteEvent(id)
+      showEventModal = false
+      editingEvent = null
+      await loadData()
+    } catch (err) {
+      console.error('Error deleting event:', err)
+    }
+  }
+
+  async function quickDeleteEvent(ev) {
+    const ok = await showConfirm('Delete this event?', 'Delete Event', 'Delete', 'Cancel')
+    if (!ok) return
+    try { await api.deleteEvent(ev.id); await loadData() } catch (e) { console.error('Delete failed', e) }
   }
 
   async function startResetTimers() {
@@ -182,13 +232,19 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">{event.description}</div>
                       {/if}
                     </div>
-                    <div class="ml-3">
-                      <span class="text-[10px] px-1.5 py-0.5 rounded-full {
-                        event.participation_status === 'Confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200' :
-                        event.participation_status === 'Signed Up' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200' :
-                        event.participation_status === 'Tentative' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                      }">{event.participation_status || 'No RSVP'}</span>
+                    <div class="ml-3 flex items-center gap-2">
+                      <select 
+                        value={event.participation_status || 'Signed Up'}
+                        on:change={(e) => updateRsvpStatus(event.id, e.target.value)}
+                        class="text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                      >
+                        <option value="Signed Up">Signed Up</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Tentative">Tentative</option>
+                        <option value="Absent">Absent</option>
+                      </select>
+                      <button class="btn-secondary text-[10px] px-2 py-1" on:click={() => openEditEvent(event)}>Edit</button>
+                      <button class="btn-danger text-[10px] px-2 py-1" on:click={() => quickDeleteEvent(event)}>Delete</button>
                     </div>
                   </div>
                 </div>
@@ -327,4 +383,5 @@
       </div>
     </div>
   {/if}
+  <EventModal show={showEventModal} editingEvent={editingEvent} characters={characters} isCreating={false} on:save={handleEventSave} on:cancel={() => { showEventModal = false; editingEvent = null }} on:delete={handleEventDelete} />
 </div> 
