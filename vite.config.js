@@ -6,7 +6,7 @@ export default defineConfig({
   base: './',
   build: {
     // Use a renderer-specific folder to avoid clobbering electron-builder output dir
-    outDir: 'renderer',
+    outDir: 'docs',
     rollupOptions: {
       input: {
         main: './index.html'
