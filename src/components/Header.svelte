@@ -58,19 +58,9 @@
   }
 </script>
 
-<header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-  <div class="flex items-center justify-between">
-    <!-- App Title -->
-    <div class="flex items-center space-x-4">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-        New World Planner
-      </h1>
-      <span class="text-sm text-gray-500 dark:text-gray-400">
-        v1.0.0
-      </span>
-    </div>
-    
-    <!-- Center - Upcoming Events -->
+<header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-3">
+  <div class="flex items-center justify-between gap-4">
+    <!-- Upcoming Events -->
     <div class="flex items-center space-x-4">
       <div class="relative">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
