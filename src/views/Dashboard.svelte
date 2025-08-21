@@ -14,6 +14,14 @@
   let selectedCharacterId = null
   let showEventModal = false
   let editingEvent = null
+
+  // Tasks card controls
+  let showCompleted = true
+  let viewMode = 'byCharacter' // 'byCharacter' | 'byType'
+  let typeView = 'daily' // 'daily' | 'weekly'
+
+  // Cache of tasks for each character (for byType view)
+  let tasksByCharacter = {}
   
   onMount(async () => {
     await loadData()
@@ -36,8 +44,16 @@
       // Load tasks for selected character (default to first)
       if (characters.length > 0) {
         if (!selectedCharacterId) selectedCharacterId = characters[0].id
-        const characterTasks = await api.getCharacterTasks(selectedCharacterId)
-        displayedTasks = characterTasks
+        // Load all characters' tasks for byType view and cache
+        try {
+          const results = await Promise.all(
+            characters.map(async (c) => [c.id, await api.getCharacterTasks(c.id)])
+          )
+          tasksByCharacter = Object.fromEntries(results)
+        } catch (e) {
+          tasksByCharacter = {}
+        }
+        displayedTasks = tasksByCharacter[selectedCharacterId] || []
         
         // Extract unique servers from characters with timezone
         const pairs = characters.map(c => ({ name: c.server_name, timezone: c.server_timezone }))
@@ -171,17 +187,24 @@
   }
 
   async function toggleTaskCompletion(task) {
-    if (!selectedCharacterId) return
+    if (!selectedCharacterId && viewMode === 'byCharacter') return
     
     try {
+      const targetCharacterId = viewMode === 'byType' ? task.__characterId : selectedCharacterId
+      if (!targetCharacterId) return
       if (task.completed) {
-        await api.markTaskIncomplete(task.id, selectedCharacterId, task.resetPeriod)
+        await api.markTaskIncomplete(task.id, targetCharacterId, task.resetPeriod)
       } else {
-        await api.markTaskComplete(task.id, selectedCharacterId, task.resetPeriod)
+        await api.markTaskComplete(task.id, targetCharacterId, task.resetPeriod)
       }
-      
-      // Reload tasks to update the UI
-      await loadTasksForCharacter(selectedCharacterId)
+      // Reload relevant tasks
+      if (viewMode === 'byCharacter') {
+        await loadTasksForCharacter(selectedCharacterId)
+      } else {
+        // refresh only that character's tasks in the cache
+        const refreshed = await api.getCharacterTasks(targetCharacterId)
+        tasksByCharacter = { ...tasksByCharacter, [targetCharacterId]: refreshed }
+      }
     } catch (error) {
       console.error('Error toggling task completion:', error)
     }
@@ -208,16 +231,29 @@
     }
   }
 
-  // Split and sort tasks by type and priority
-  $: dailyTasks = (displayedTasks || [])
+  // Apply show/hide completed filter for byCharacter view
+  $: filteredDisplayedTasks = (displayedTasks || []).filter(t => showCompleted ? true : !t.completed)
+
+  // Split and sort tasks by type and priority (byCharacter)
+  $: dailyTasks = (filteredDisplayedTasks || [])
     .filter(t => t.type === 'daily')
     .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
-  $: weeklyTasks = (displayedTasks || [])
+  $: weeklyTasks = (filteredDisplayedTasks || [])
     .filter(t => t.type === 'weekly')
     .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
-  $: oneTimeTasks = (displayedTasks || [])
+  $: oneTimeTasks = (filteredDisplayedTasks || [])
     .filter(t => t.type === 'one-time')
     .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
+
+  // ByType groupings: build list of { character, tasks } based on typeView
+  $: byTypeGroups = (characters || []).map(c => {
+    const tasks = (tasksByCharacter[c.id] || [])
+      .filter(t => (typeView === 'daily' ? t.type === 'daily' : t.type === 'weekly'))
+      .filter(t => showCompleted ? true : !t.completed)
+      .map(t => ({ ...t, __characterId: c.id }))
+      .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
+    return { character: c, tasks }
+  }).filter(group => group.tasks.length > 0)
 </script>
 
 <div class="max-w-7xl mx-auto">
@@ -286,13 +322,34 @@
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
             {#if characters.length > 0}
-            <div class="flex items-center gap-2">
-              <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
-              <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
-                {#each characters as c}
-                  <option value={c.id}>{c.name}</option>
-                {/each}
+            <div class="flex items-center gap-3">
+              <!-- Show/Hide Completed toggle -->
+              <label class="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300">
+                <input type="checkbox" bind:checked={showCompleted} class="w-3 h-3" />
+                Show completed
+              </label>
+
+              <!-- View mode -->
+              <label for="dash-viewmode" class="text-xs text-gray-700 dark:text-gray-300">View</label>
+              <select id="dash-viewmode" bind:value={viewMode} class="select-input text-xs">
+                <option value="byCharacter">By Character</option>
+                <option value="byType">By Type</option>
               </select>
+
+              {#if viewMode === 'byCharacter'}
+                <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
+                <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
+                  {#each characters as c}
+                    <option value={c.id}>{c.name}</option>
+                  {/each}
+                </select>
+              {:else}
+                <label for="dash-type" class="text-xs text-gray-700 dark:text-gray-300">Type</label>
+                <select id="dash-type" bind:value={typeView} class="select-input text-xs">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              {/if}
             </div>
             {/if}
           </div>
@@ -304,14 +361,14 @@
               </button>
             </div>
           {:else}
-            {#if displayedTasks.length === 0}
+            {#if viewMode === 'byCharacter' && displayedTasks.length === 0}
               <div class="text-center text-gray-500 dark:text-gray-400 py-4">
                 <p class="text-sm">No tasks assigned to this character.</p>
                 <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => currentView.set('tasks')}>
                   Create or assign tasks →
                 </button>
               </div>
-            {:else}
+            {:else if viewMode === 'byCharacter'}
               <div class="space-y-4">
                 {#if dailyTasks.length > 0}
                   <div>
@@ -385,6 +442,39 @@
                   </div>
                 {/if}
               </div>
+            {:else}
+              <!-- By Type view: list chosen type for each character with tasks -->
+              {#if byTypeGroups.length === 0}
+                <div class="text-center text-gray-500 dark:text-gray-400 py-4">
+                  <p class="text-sm">No {typeView} tasks available.</p>
+                </div>
+              {:else}
+                <div class="space-y-3">
+                  {#each byTypeGroups as group}
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-2">
+                      <div class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{group.character.name}</div>
+                      <div class="space-y-2">
+                        {#each group.tasks as task}
+                          <div class="flex items-center justify-between p-2 rounded border border-gray-100 dark:border-gray-700">
+                            <div class="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={task.completed}
+                                on:change={() => toggleTaskCompletion(task)}
+                                class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <div class="flex flex-col">
+                                <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                                <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                              </div>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
             {/if}
           {/if}
         </div>
