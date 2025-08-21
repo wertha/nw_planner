@@ -16,7 +16,7 @@
   let editingEvent = null
 
   // Tasks card controls
-  let showCompleted = true
+  let showCompleted = false
   let viewMode = 'byCharacter' // 'byCharacter' | 'byType'
   let typeView = 'daily' // 'daily' | 'weekly'
 
@@ -324,28 +324,33 @@
             {#if characters.length > 0}
             <div class="flex items-center gap-3">
               <!-- Show/Hide Completed toggle -->
-              <label class="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300">
-                <input type="checkbox" bind:checked={showCompleted} class="w-3 h-3" />
-                Show completed
-              </label>
+              <button
+                type="button"
+                class={`text-xs rounded-md border px-3 py-1.5 transition-colors ${showCompleted ? 'bg-green-600 text-white border-green-600' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600'}`}
+                on:click={() => showCompleted = !showCompleted}
+                aria-pressed={showCompleted}
+                title={showCompleted ? 'Hide completed tasks' : 'Show completed tasks'}
+              >
+                {showCompleted ? 'Showing Completed' : 'Hide Completed'}
+              </button>
 
               <!-- View mode -->
               <label for="dash-viewmode" class="text-xs text-gray-700 dark:text-gray-300">View</label>
-              <select id="dash-viewmode" bind:value={viewMode} class="select-input text-xs">
+              <select id="dash-viewmode" bind:value={viewMode} class="select-input-xs">
                 <option value="byCharacter">By Character</option>
                 <option value="byType">By Type</option>
               </select>
 
               {#if viewMode === 'byCharacter'}
                 <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
-                <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
+                <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input-xs">
                   {#each characters as c}
                     <option value={c.id}>{c.name}</option>
                   {/each}
                 </select>
               {:else}
                 <label for="dash-type" class="text-xs text-gray-700 dark:text-gray-300">Type</label>
-                <select id="dash-type" bind:value={typeView} class="select-input text-xs">
+                <select id="dash-type" bind:value={typeView} class="select-input-xs">
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                 </select>
