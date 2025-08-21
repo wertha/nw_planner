@@ -25,6 +25,8 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci --legacy-peer-deps
+      - name: Rebuild native modules
+        run: npx electron-rebuild -f -w better-sqlite3
 
       - name: Build Renderer
         run: npm run build
@@ -50,6 +52,7 @@ jobs:
         with:
           node-version: 18
       - run: npm ci --legacy-peer-deps
+      - run: npx electron-rebuild -f -w better-sqlite3
       - run: npm run build
       - run: npx electron-builder --mac --publish never
       - uses: softprops/action-gh-release@v2
@@ -69,6 +72,7 @@ jobs:
         with:
           node-version: 18
       - run: npm ci --legacy-peer-deps
+      - run: npx electron-rebuild -f -w better-sqlite3
       - run: npm run build
       - run: npx electron-builder --linux --publish never
       - uses: softprops/action-gh-release@v2
