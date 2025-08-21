@@ -15,7 +15,9 @@
     "dist-win": "npm run build && electron-builder --win",
     "dist-mac": "npm run build && electron-builder --mac",
     "dist-linux": "npm run build && electron-builder --linux",
-    "gen-icons": "node scripts/generate-icons.js"
+    "gen-icons": "node scripts/generate-icons.js",
+    "rebuild-native": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "keywords": [
     "electron",

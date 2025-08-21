@@ -256,9 +256,10 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">{event.description}</div>
                       {/if}
                     </div>
-                    <div class="ml-3 flex items-center gap-2" on:click|stopPropagation>
+                    <div class="ml-3 flex items-center gap-2">
                       <span class={`w-2 h-2 rounded-full ${rsvpDotClass(event.participation_status || 'Signed Up')}`} aria-hidden="true"></span>
                       <select 
+                        on:click|stopPropagation
                         value={event.participation_status || 'Signed Up'}
                         on:change={(e) => updateRsvpStatus(event.id, e.target.value)}
                         class="text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"

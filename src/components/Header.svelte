@@ -63,9 +63,9 @@
     <!-- Upcoming Events -->
     <div class="flex items-center space-x-4">
       <div class="relative">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+        <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
           Upcoming Events
-        </label>
+        </div>
         <div class="flex space-x-2">
           {#if eventsLoading}
             <div class="px-3 py-1 text-sm rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
