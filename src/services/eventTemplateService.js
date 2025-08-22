@@ -13,10 +13,10 @@ class EventTemplateService {
 
     // Prepare statements
     this.statements = {
-      getAll: this.db.prepare('SELECT * FROM event_templates ORDER BY name ASC'),
-      getById: this.db.prepare('SELECT * FROM event_templates WHERE id = ?'),
-      getByName: this.db.prepare('SELECT * FROM event_templates WHERE name = ?'),
-      insert: this.db.prepare(`
+      getAll: await this.db.prepare('SELECT * FROM event_templates ORDER BY name ASC'),
+      getById: await this.db.prepare('SELECT * FROM event_templates WHERE id = ?'),
+      getByName: await this.db.prepare('SELECT * FROM event_templates WHERE name = ?'),
+      insert: await this.db.prepare(`
         INSERT INTO event_templates (
           name, event_type, description, location, participation_status,
           notification_enabled, notification_minutes, preferred_time_mode,
@@ -24,7 +24,7 @@ class EventTemplateService {
           time_strategy, time_params
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
-      update: this.db.prepare(`
+      update: await this.db.prepare(`
         UPDATE event_templates SET
           name = ?, event_type = ?, description = ?, location = ?, participation_status = ?,
           notification_enabled = ?, notification_minutes = ?, preferred_time_mode = ?,
@@ -32,7 +32,7 @@ class EventTemplateService {
           time_strategy = ?, time_params = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `),
-      delete: this.db.prepare('DELETE FROM event_templates WHERE id = ?')
+      delete: await this.db.prepare('DELETE FROM event_templates WHERE id = ?')
     }
 
     // Seed defaults
