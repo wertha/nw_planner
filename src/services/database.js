@@ -135,6 +135,28 @@ class DatabaseService {
             )
         `)
 
+        // Event templates table
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS event_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                event_type TEXT,
+                description TEXT,
+                location TEXT,
+                participation_status TEXT CHECK(participation_status IN ('Signed Up','Confirmed','Absent','Tentative')) DEFAULT 'Signed Up',
+                notification_enabled BOOLEAN DEFAULT 1,
+                notification_minutes INTEGER DEFAULT 30,
+                preferred_time_mode TEXT CHECK(preferred_time_mode IN ('local','server')) DEFAULT 'local',
+                timezone_source TEXT CHECK(timezone_source IN ('templateServer','selectedCharacter','local')) DEFAULT NULL,
+                template_server_name TEXT,
+                template_server_timezone TEXT,
+                time_strategy TEXT CHECK(time_strategy IN ('relativeOffset','nextDayAtTime','nextWeekdayAtTime','fixedDateTime')) DEFAULT NULL,
+                time_params TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `)
+
         // Create indexes for performance
         this.db.exec(`
             CREATE INDEX IF NOT EXISTS idx_servers_region ON servers(region);
@@ -144,6 +166,7 @@ class DatabaseService {
             CREATE INDEX IF NOT EXISTS idx_task_completions_reset_period ON task_completions(reset_period);
             CREATE INDEX IF NOT EXISTS idx_events_character ON events(character_id);
             CREATE INDEX IF NOT EXISTS idx_events_time ON events(event_time);
+            CREATE INDEX IF NOT EXISTS idx_event_templates_name ON event_templates(name);
         `)
 
         // Create triggers for timestamp updates
@@ -161,6 +184,46 @@ class DatabaseService {
 
         // Note: Default tasks are no longer automatically inserted to keep the app clean
         // Users can manually add tasks or import data if needed
+    }
+
+    insertDefaultEventTemplates() {
+        const defaults = [
+            {
+                name: 'War',
+                event_type: 'War',
+                participation_status: 'Signed Up',
+                notification_enabled: 1,
+                notification_minutes: 60,
+                preferred_time_mode: 'server',
+                timezone_source: 'selectedCharacter',
+                template_server_name: null,
+                template_server_timezone: null,
+                time_strategy: 'relativeOffset',
+                time_params: JSON.stringify({ offsetMinutes: 60 })
+            }
+        ]
+
+        const checkStmt = this.db.prepare('SELECT id FROM event_templates WHERE name = ?')
+        const insertStmt = this.db.prepare(`
+            INSERT INTO event_templates (
+                name, event_type, description, location,
+                participation_status, notification_enabled, notification_minutes,
+                preferred_time_mode, timezone_source, template_server_name, template_server_timezone,
+                time_strategy, time_params
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+
+        defaults.forEach(t => {
+            const existing = checkStmt.get(t.name)
+            if (!existing) {
+                insertStmt.run(
+                    t.name, t.event_type || null, t.description || null, t.location || null,
+                    t.participation_status || 'Signed Up', t.notification_enabled ? 1 : 0, typeof t.notification_minutes === 'number' ? t.notification_minutes : 30,
+                    t.preferred_time_mode || 'local', t.timezone_source || null, t.template_server_name || null, t.template_server_timezone || null,
+                    t.time_strategy || null, t.time_params || null
+                )
+            }
+        })
     }
 
     migrateTasksTableForOneTime() {

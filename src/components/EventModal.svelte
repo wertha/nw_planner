@@ -33,6 +33,8 @@
   let nameInputEl
   let submitting = false
   let timeMode = 'local' // 'local' | 'server'
+  let templates = []
+  let selectedTemplateId = ''
   
   // Event types
   const eventTypes = [
@@ -114,6 +116,88 @@
     errors = {}
     isValid = true
     timeMode = 'local'
+  }
+
+  // Load templates when shown
+  import api from '../services/api.js'
+  $: if (show) {
+    (async () => { try { templates = await api.getEventTemplates() } catch (_) { templates = [] } })()
+  }
+
+  function applyTemplate(templateId) {
+    const tpl = templates.find(t => t.id == templateId)
+    if (!tpl) return
+    selectedTemplateId = templateId
+    // Copy scalar fields
+    formData.name = tpl.name || formData.name
+    formData.description = tpl.description || ''
+    formData.event_type = tpl.event_type || formData.event_type
+    formData.location = tpl.location || ''
+    formData.participation_status = tpl.participation_status || 'Signed Up'
+    formData.notification_enabled = tpl.notification_enabled !== 0
+    formData.notification_minutes = typeof tpl.notification_minutes === 'number' ? tpl.notification_minutes : 30
+    if (tpl.preferred_time_mode) timeMode = tpl.preferred_time_mode
+    // Time strategy: compute if possible, else leave empty
+    try {
+      const computed = computeTemplateEventTime(tpl)
+      formData.event_time = computed || ''
+    } catch (_) {
+      formData.event_time = ''
+    }
+  }
+
+  function resolveTimezoneFromTemplate(tpl) {
+    const source = tpl.timezone_source
+    if (source === 'local' || !source) return Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (source === 'templateServer') return tpl.template_server_timezone || formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+    // selectedCharacter
+    const character = characters.find(c => c.id === parseInt(formData.character_id))
+    return character?.server_timezone || formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+  }
+
+  function computeTemplateEventTime(tpl) {
+    if (!tpl || !tpl.time_strategy) return ''
+    const tz = resolveTimezoneFromTemplate(tpl)
+    const now = new Date()
+    const strategy = tpl.time_strategy
+    const params = typeof tpl.time_params === 'string' ? JSON.parse(tpl.time_params) : (tpl.time_params || {})
+    if (strategy === 'relativeOffset') {
+      const minutes = parseInt(params.offsetMinutes || 0)
+      const future = new Date(now.getTime() + minutes * 60000)
+      return (timeMode === 'server') ? zonedTimeToUtc(future, tz).toISOString() : future.toISOString()
+    }
+    function buildZoned(dateParts) {
+      const { year, month, day, hour, minute } = dateParts
+      const iso = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00`
+      return zonedTimeToUtc(iso, tz).toISOString()
+    }
+    const serverNow = new Date()
+    if (strategy === 'nextDayAtTime') {
+      const [hh, mm] = String(params.timeOfDay || '20:00').split(':').map(x=>parseInt(x))
+      const d = new Date(serverNow)
+      d.setDate(d.getDate() + 1)
+      return buildZoned({ year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate(), hour: hh, minute: mm })
+    }
+    if (strategy === 'nextWeekdayAtTime') {
+      const weekday = parseInt(params.weekday || 2) // 0-6
+      const [hh, mm] = String(params.timeOfDay || '20:00').split(':').map(x=>parseInt(x))
+      const d = new Date(serverNow)
+      const delta = (weekday - d.getDay() + 7) % 7 || 7
+      d.setDate(d.getDate() + delta)
+      return buildZoned({ year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate(), hour: hh, minute: mm })
+    }
+    if (strategy === 'fixedDateTime') {
+      const isoLocal = params.isoDateTime // e.g., 2025-03-01T20:00
+      if (!isoLocal) return ''
+      return buildZoned({
+        year: parseInt(isoLocal.slice(0,4)),
+        month: parseInt(isoLocal.slice(5,7)),
+        day: parseInt(isoLocal.slice(8,10)),
+        hour: parseInt(isoLocal.slice(11,13)),
+        minute: parseInt(isoLocal.slice(14,16))
+      })
+    }
+    return ''
   }
   
   function formatDateTimeLocal(dateString) {
@@ -312,11 +396,24 @@
           {/if}
         </div>
         
-        <!-- Event Type -->
+        <!-- Template Apply + Event Type -->
         <div>
-          <label for="event_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Event Type *
-          </label>
+          <div class="flex items-center justify-between mb-2">
+            <label for="event_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Event Type *
+            </label>
+            {#if templates.length > 0}
+            <div class="flex items-center gap-2">
+              <label for="apply_template" class="text-xs text-gray-600 dark:text-gray-400">Apply Template</label>
+              <select id="apply_template" bind:value={selectedTemplateId} on:change={(e)=> applyTemplate(e.target.value)} class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                <option value="">Select</option>
+                {#each templates as t}
+                  <option value={t.id}>{t.name}</option>
+                {/each}
+              </select>
+            </div>
+            {/if}
+          </div>
           <select
             id="event_type"
             bind:value={formData.event_type}

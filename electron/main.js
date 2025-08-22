@@ -12,6 +12,7 @@ let characterService
 let taskService
 let eventService
 let serverService
+let eventTemplateService
 
 // Import services
 async function initializeServices() {
@@ -20,6 +21,7 @@ async function initializeServices() {
     const taskServiceModule = await import('../src/services/taskService.js')
     const eventServiceModule = await import('../src/services/eventService.js')
     const serverServiceModule = await import('../src/services/serverService.js')
+    const eventTemplateServiceModule = await import('../src/services/eventTemplateService.js')
     
     // Use the singleton instances
     database = databaseService.default
@@ -27,6 +29,7 @@ async function initializeServices() {
     taskService = taskServiceModule.default
     eventService = eventServiceModule.default
     serverService = serverServiceModule.default
+    eventTemplateService = eventTemplateServiceModule.default
     
     // Initialize the database
     await database.init(app.getPath('userData'))
@@ -47,6 +50,7 @@ async function initializeServices() {
     await characterService.ensureInitialized()
     await taskService.ensureInitialized()
     await eventService.ensureInitialized()
+    await eventTemplateService.ensureInitialized()
 }
 
 // IPC Handlers
@@ -311,6 +315,20 @@ function setupIpcHandlers() {
     
     ipcMain.handle('event:createCompanyEvent', async (event, eventData) => {
         return await eventService.createCompanyEvent(eventData)
+    })
+
+    // Event templates operations
+    ipcMain.handle('template:getAll', async () => {
+        return await eventTemplateService.getAll()
+    })
+    ipcMain.handle('template:create', async (event, templateData) => {
+        return await eventTemplateService.create(templateData)
+    })
+    ipcMain.handle('template:update', async (event, id, partial) => {
+        return await eventTemplateService.update(id, partial)
+    })
+    ipcMain.handle('template:delete', async (event, id) => {
+        return await eventTemplateService.delete(id)
     })
     
     // Database operations

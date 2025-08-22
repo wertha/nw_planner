@@ -7,6 +7,7 @@
   let loading = true
   let events = []
   let characters = []
+  let templates = []
   let filterType = 'all'
   let filterCharacter = 'all'
   let showModal = false
@@ -28,13 +29,15 @@
     loading = true
     try {
       // Load events and characters
-      const [eventsData, charactersData] = await Promise.all([
+      const [eventsData, charactersData, templatesData] = await Promise.all([
         api.getEvents(),
-        api.getActiveCharacters()
+        api.getActiveCharacters(),
+        api.getEventTemplates()
       ])
       
       events = eventsData
       characters = charactersData
+      templates = templatesData
     } catch (error) {
       console.error('Error loading events data:', error)
     } finally {
@@ -151,7 +154,16 @@
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
       <div class="flex space-x-2">
         <button class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={openCreate}>Add New Event</button>
-        <button class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={async () => { try { const inOneHour = new Date(Date.now() + 60 * 60 * 1000).toISOString(); await api.createWarEvent({ name: 'War', event_time: inOneHour, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }); await loadData() } catch (e) { console.error('Quick War failed', e) } }}>Quick War</button>
+        {#if templates.length > 0}
+          <div class="relative">
+            <select class="btn-secondary text-sm px-3 py-2" on:change={async (e)=>{ const tplId = e.target.value; if (!tplId) return; openCreate(); /* EventModal will apply template via user selection */ e.target.value=''; }}>
+              <option value="">New from Template…</option>
+              {#each templates as t}
+                <option value={t.id}>{t.name}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
       </div>
       
       <!-- Filters -->

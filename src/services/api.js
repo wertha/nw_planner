@@ -871,6 +871,46 @@ class ApiService {
         }
     }
 
+    // Event templates
+    async getEventTemplates() {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.templates.getAll()
+        // web mode fallback
+        return JSON.parse(localStorage.getItem('nw_event_templates') || '[]')
+    }
+
+    async createEventTemplate(tpl) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.templates.create(tpl)
+        const all = JSON.parse(localStorage.getItem('nw_event_templates') || '[]')
+        const withId = { id: Date.now(), ...tpl }
+        all.push(withId)
+        localStorage.setItem('nw_event_templates', JSON.stringify(all))
+        return withId
+    }
+
+    async updateEventTemplate(id, partial) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.templates.update(id, partial)
+        const all = JSON.parse(localStorage.getItem('nw_event_templates') || '[]')
+        const idx = all.findIndex(t => t.id === id)
+        if (idx !== -1) {
+            all[idx] = { ...all[idx], ...partial }
+            localStorage.setItem('nw_event_templates', JSON.stringify(all))
+            return all[idx]
+        }
+        return null
+    }
+
+    async deleteEventTemplate(id) {
+        await this.init()
+        if (this.isElectron) return await this.electronAPI.templates.delete(id)
+        const all = JSON.parse(localStorage.getItem('nw_event_templates') || '[]')
+        const filtered = all.filter(t => t.id !== id)
+        localStorage.setItem('nw_event_templates', JSON.stringify(filtered))
+        return true
+    }
+
     // Helper methods for New World specific events
     async createWarEvent(eventData) {
         await this.init()
