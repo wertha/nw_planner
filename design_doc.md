@@ -1022,6 +1022,15 @@ Testing checklist (Tasks)
 - [x] Verify inactive servers are visually distinguished
 - [ ] Test bulk status changes on multiple servers
 
+**Test 7.1: Retrieve Latest Servers (Spinner and Append)**
+- [x] Click "Retrieve Server List"; spinner shows during fetch and hides on completion.
+- [x] New servers append without duplicates; counts update.
+- [x] Network error handled with in-app dialog.
+
+**Test 7.2: Clear Unused Servers**
+- [x] Run "Clear Unused"; servers without character/event references are removed.
+- [x] Referenced servers remain.
+
 ### 10.4 Character Management Testing
 
 **Test 8: Character Creation**
@@ -1092,9 +1101,15 @@ Testing checklist (Tasks)
 - [x] Assign a task to a character via Tasks view assignment UI
 - [x] Verify it appears on Dashboard for that character
 - [x] Remove assignment; verify it disappears from that character’s list
- - [x] Create a new task; confirm typing works in text inputs and textareas
- - [x] Edit an existing task; confirm typing works in text inputs and textareas
- - [x] Confirm Delete in library row removes the task and updates character cards
+- - [x] Create a new task; confirm typing works in text inputs and textareas
+- - [x] Edit an existing task; confirm typing works in text inputs and textareas
+- - [x] Confirm Delete in library row removes the task and updates character cards
+
+**Test 14.2: Dashboard Tasks Card Persistence**
+- [x] Change view mode (By Character/By Type), type filter, selected character, and Show Completed.
+- [x] Navigate away and back; verify selections persist.
+- [x] Reload the app; verify persistence remains.
+- [x] If the previously selected character was removed, fallback to first available without error.
 
 ### 10.6 Event Management Testing
 
@@ -1108,6 +1123,17 @@ Testing checklist (Tasks)
 - [x] Test description input
 - [x] Test RSVP status selection
 - [x] Create event and verify it appears in list
+
+**Test 15.1: Event Time Mode (Local vs Server)**
+- [x] Toggle Local vs Server segmented control; helper text updates accordingly.
+- [x] In Server mode, selecting a character updates helper to that character's server timezone; switching character updates timezone.
+- [x] Submit with Local mode and verify stored UTC corresponds to chosen local wall time.
+- [x] Submit with Server mode and verify stored UTC corresponds to chosen server wall time using the selected character's timezone.
+- [x] Re-open for edit: fields default to Local presentation; saving preserves correct UTC.
+
+**Test 15.2: Apply Template in EventModal**
+- [x] Choose a template; verify fields populate (name, type, location, participation, notifications, preferred time mode) with time left empty.
+- [x] Preferred time mode sets the segmented control; conversion on submit is correct for the chosen mode.
 
 **Test 16: Event Editing**
 - [x] Click edit button on existing event
@@ -1154,6 +1180,11 @@ Testing checklist (Tasks)
 - [x] Verify event time updates
 - [x] Drag event to different time slot
 - [x] Verify time change persists
+
+**Test 20.1: New from Template via Calendar**
+- [x] From a date cell, select "New from Template" and pick a template.
+- [x] EventModal opens prefilled per template; user selects date/time and submits.
+- [x] Verify preferred time mode sets segmented control and stored UTC is correct.
 
 ### 10.8 Time & Reset Timer Testing
 
@@ -1207,6 +1238,7 @@ Testing checklist (Tasks)
 - [x] Each event displays name, type, optional server, and local date/time
 - [x] When creating/updating/deleting an event, header refreshes within a minute or on window focus
 - [x] When there are no upcoming events, header shows a friendly empty state
+ - [x] Only events within the next 20 hours appear in the header list
 
 **Test 29: Form Validation**
 - [x] Try creating character with empty name
