@@ -14,6 +14,14 @@
   let selectedCharacterId = null
   let showEventModal = false
   let editingEvent = null
+
+  // Tasks card controls
+  let showCompleted = false
+  let viewMode = 'byCharacter' // 'byCharacter' | 'byType'
+  let typeView = 'daily' // 'daily' | 'weekly' | 'one-time'
+
+  // Cache of tasks for each character (for byType view)
+  let tasksByCharacter = {}
   
   onMount(async () => {
     await loadData()
@@ -36,8 +44,16 @@
       // Load tasks for selected character (default to first)
       if (characters.length > 0) {
         if (!selectedCharacterId) selectedCharacterId = characters[0].id
-        const characterTasks = await api.getCharacterTasks(selectedCharacterId)
-        displayedTasks = characterTasks
+        // Load all characters' tasks for byType view and cache
+        try {
+          const results = await Promise.all(
+            characters.map(async (c) => [c.id, await api.getCharacterTasks(c.id)])
+          )
+          tasksByCharacter = Object.fromEntries(results)
+        } catch (e) {
+          tasksByCharacter = {}
+        }
+        displayedTasks = tasksByCharacter[selectedCharacterId] || []
         
         // Extract unique servers from characters with timezone
         const pairs = characters.map(c => ({ name: c.server_name, timezone: c.server_timezone }))
@@ -122,6 +138,15 @@
       : 'bg-gray-500'
   }
 
+  function getPriorityClass(priority) {
+    const p = (priority || '').toLowerCase()
+    if (p === 'critical') return 'priority-critical'
+    if (p === 'high') return 'priority-high'
+    if (p === 'medium') return 'priority-medium'
+    if (p === 'low') return 'priority-low'
+    return 'text-gray-500 dark:text-gray-400'
+  }
+
   async function startResetTimers() {
     // Start timers for all unique servers from active characters
     if (selectedCharacterServers.length > 0) {
@@ -171,17 +196,24 @@
   }
 
   async function toggleTaskCompletion(task) {
-    if (!selectedCharacterId) return
+    if (!selectedCharacterId && viewMode === 'byCharacter') return
     
     try {
+      const targetCharacterId = viewMode === 'byType' ? task.__characterId : selectedCharacterId
+      if (!targetCharacterId) return
       if (task.completed) {
-        await api.markTaskIncomplete(task.id, selectedCharacterId, task.resetPeriod)
+        await api.markTaskIncomplete(task.id, targetCharacterId, task.resetPeriod)
       } else {
-        await api.markTaskComplete(task.id, selectedCharacterId, task.resetPeriod)
+        await api.markTaskComplete(task.id, targetCharacterId, task.resetPeriod)
       }
-      
-      // Reload tasks to update the UI
-      await loadTasksForCharacter(selectedCharacterId)
+      // Reload relevant tasks
+      if (viewMode === 'byCharacter') {
+        await loadTasksForCharacter(selectedCharacterId)
+      } else {
+        // refresh only that character's tasks in the cache
+        const refreshed = await api.getCharacterTasks(targetCharacterId)
+        tasksByCharacter = { ...tasksByCharacter, [targetCharacterId]: refreshed }
+      }
     } catch (error) {
       console.error('Error toggling task completion:', error)
     }
@@ -208,16 +240,33 @@
     }
   }
 
-  // Split and sort tasks by type and priority
-  $: dailyTasks = (displayedTasks || [])
+  // Apply show/hide completed filter for byCharacter view
+  $: filteredDisplayedTasks = (displayedTasks || []).filter(t => showCompleted ? true : !t.completed)
+
+  // Split and sort tasks by type and priority (byCharacter)
+  $: dailyTasks = (filteredDisplayedTasks || [])
     .filter(t => t.type === 'daily')
     .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
-  $: weeklyTasks = (displayedTasks || [])
+  $: weeklyTasks = (filteredDisplayedTasks || [])
     .filter(t => t.type === 'weekly')
     .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
-  $: oneTimeTasks = (displayedTasks || [])
+  $: oneTimeTasks = (filteredDisplayedTasks || [])
     .filter(t => t.type === 'one-time')
     .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
+
+  // ByType groupings: build list of { character, tasks } based on typeView
+  $: byTypeGroups = (characters || []).map(c => {
+    const tasks = (tasksByCharacter[c.id] || [])
+      .filter(t => {
+        if (typeView === 'daily') return t.type === 'daily'
+        if (typeView === 'weekly') return t.type === 'weekly'
+        return t.type === 'one-time'
+      })
+      .filter(t => showCompleted ? true : !t.completed)
+      .map(t => ({ ...t, __characterId: c.id }))
+      .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
+    return { character: c, tasks }
+  }).filter(group => group.tasks.length > 0)
 </script>
 
 <div class="max-w-7xl mx-auto">
@@ -283,17 +332,51 @@
         </div>
 
         <div class="card">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
-            {#if characters.length > 0}
-            <div class="flex items-center gap-2">
-              <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
-              <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input text-xs">
-                {#each characters as c}
-                  <option value={c.id}>{c.name}</option>
-                {/each}
-              </select>
+          <div class="mb-3">
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
             </div>
+
+            {#if characters.length > 0}
+              <!-- Second row: view and filters (left aligned) -->
+              <div class="mt-3 flex items-center gap-4">
+                <label for="dash-viewmode" class="text-xs text-gray-700 dark:text-gray-300">View</label>
+                <select id="dash-viewmode" bind:value={viewMode} class="select-input-xs">
+                  <option value="byCharacter">By Character</option>
+                  <option value="byType">By Type</option>
+                </select>
+
+                {#if viewMode === 'byCharacter'}
+                  <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
+                  <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input-xs">
+                    {#each characters as c}
+                      <option value={c.id}>{c.name}</option>
+                    {/each}
+                  </select>
+                {:else}
+                  <label for="dash-type" class="text-xs text-gray-700 dark:text-gray-300">Type</label>
+                  <select id="dash-type" bind:value={typeView} class="select-input-xs">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="one-time">One-time</option>
+                  </select>
+                {/if}
+              </div>
+
+              <!-- Third row: toggle (left aligned) -->
+              <div class="mt-2 flex justify-start">
+                <button
+                  type="button"
+                  class={`text-xs rounded-md border px-3 py-1.5 transition-colors ${showCompleted 
+                    ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer' 
+                    : 'opacity-80 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'}`}
+                  on:click={() => showCompleted = !showCompleted}
+                  aria-pressed={showCompleted}
+                  title={showCompleted ? 'Hide completed tasks' : 'Show completed tasks'}
+                >
+                  {showCompleted ? 'Hide Completed' : 'Show Completed'}
+                </button>
+              </div>
             {/if}
           </div>
           {#if characters.length === 0}
@@ -304,35 +387,35 @@
               </button>
             </div>
           {:else}
-            {#if displayedTasks.length === 0}
+            {#if viewMode === 'byCharacter' && displayedTasks.length === 0}
               <div class="text-center text-gray-500 dark:text-gray-400 py-4">
                 <p class="text-sm">No tasks assigned to this character.</p>
                 <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => currentView.set('tasks')}>
                   Create or assign tasks →
                 </button>
               </div>
-            {:else}
+            {:else if viewMode === 'byCharacter'}
               <div class="space-y-4">
                 {#if dailyTasks.length > 0}
                   <div>
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Daily</div>
                     <div class="space-y-2">
-                      {#each dailyTasks as task}
-                        <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                          <div class="flex items-center gap-2">
-                            <input 
-                              type="checkbox" 
-                              checked={task.completed}
-                              on:change={() => toggleTaskCompletion(task)}
-                              class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                            />
-                            <div class="flex flex-col">
+                      <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                        {#each dailyTasks as task}
+                          <div class="flex items-center justify-between px-2 py-1.5">
+                            <div class="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={task.completed}
+                                on:change={() => toggleTaskCompletion(task)}
+                                class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
                               <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
-                              <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                              <span class={`text-[10px] ml-2 ${getPriorityClass(task.priority)}`}>{task.priority}</span>
                             </div>
                           </div>
-                        </div>
-                      {/each}
+                        {/each}
+                      </div>
                     </div>
                   </div>
                 {/if}
@@ -341,22 +424,22 @@
                   <div>
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Weekly</div>
                     <div class="space-y-2">
-                      {#each weeklyTasks as task}
-                        <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                          <div class="flex items-center gap-2">
-                            <input 
-                              type="checkbox" 
-                              checked={task.completed}
-                              on:change={() => toggleTaskCompletion(task)}
-                              class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                            />
-                            <div class="flex flex-col">
+                      <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                        {#each weeklyTasks as task}
+                          <div class="flex items-center justify-between px-2 py-1.5">
+                            <div class="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={task.completed}
+                                on:change={() => toggleTaskCompletion(task)}
+                                class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
                               <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
-                              <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                              <span class={`text-[10px] ml-2 ${getPriorityClass(task.priority)}`}>{task.priority}</span>
                             </div>
                           </div>
-                        </div>
-                      {/each}
+                        {/each}
+                      </div>
                     </div>
                   </div>
                 {/if}
@@ -365,26 +448,57 @@
                   <div>
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">One-time</div>
                     <div class="space-y-2">
-                      {#each oneTimeTasks as task}
-                        <div class="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                          <div class="flex items-center gap-2">
-                            <input 
-                              type="checkbox" 
-                              checked={task.completed}
-                              on:change={() => toggleTaskCompletion(task)}
-                              class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                            />
-                            <div class="flex flex-col">
+                      <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                        {#each oneTimeTasks as task}
+                          <div class="flex items-center justify-between px-2 py-1.5">
+                            <div class="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={task.completed}
+                                on:change={() => toggleTaskCompletion(task)}
+                                class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
                               <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
-                              <span class="text-[10px] text-gray-500 dark:text-gray-400">{task.priority}</span>
+                              <span class={`text-[10px] ml-2 ${getPriorityClass(task.priority)}`}>{task.priority}</span>
                             </div>
                           </div>
-                        </div>
-                      {/each}
+                        {/each}
+                      </div>
                     </div>
                   </div>
                 {/if}
               </div>
+            {:else}
+              <!-- By Type view: list chosen type for each character with tasks -->
+              {#if byTypeGroups.length === 0}
+                <div class="text-center text-gray-500 dark:text-gray-400 py-4">
+                  <p class="text-sm">No {typeView} tasks available.</p>
+                </div>
+              {:else}
+                <div class="space-y-3">
+                  {#each byTypeGroups as group}
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-2">
+                      <div class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{group.character.name}</div>
+                      <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-md overflow-hidden">
+                        {#each group.tasks as task}
+                          <div class="flex items-center justify-between px-2 py-1.5">
+                            <div class="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={task.completed}
+                                on:change={() => toggleTaskCompletion(task)}
+                                class="w-4 h-4 text-nw-blue border-gray-300 rounded focus:ring-nw-blue dark:focus:ring-nw-blue dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <span class="text-sm text-gray-900 dark:text-white {task.completed ? 'line-through opacity-50' : ''}">{task.name}</span>
+                              <span class={`text-[10px] ml-2 ${getPriorityClass(task.priority)}`}>{task.priority}</span>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
             {/if}
           {/if}
         </div>
