@@ -363,8 +363,8 @@
                 {/if}
               </div>
 
-              <!-- Third row: toggle (right aligned) -->
-              <div class="mt-2 flex justify-end">
+              <!-- Third row: toggle (left aligned) -->
+              <div class="mt-2 flex justify-start">
                 <button
                   type="button"
                   class={`text-xs rounded-md border px-3 py-1.5 transition-colors ${showCompleted 
