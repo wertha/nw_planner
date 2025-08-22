@@ -23,7 +23,30 @@
   // Cache of tasks for each character (for byType view)
   let tasksByCharacter = {}
   
+  // Persistence for tasks card preferences
+  const PERSIST_KEY = 'nw_dash_tasks_prefs'
+  function loadPrefs() {
+    try {
+      const raw = localStorage.getItem(PERSIST_KEY)
+      if (!raw) return
+      const p = JSON.parse(raw)
+      if (p && typeof p === 'object') {
+        if (p.viewMode === 'byCharacter' || p.viewMode === 'byType') viewMode = p.viewMode
+        if (p.typeView === 'daily' || p.typeView === 'weekly' || p.typeView === 'one-time') typeView = p.typeView
+        if (typeof p.showCompleted === 'boolean') showCompleted = p.showCompleted
+        if (typeof p.selectedCharacterId === 'number') selectedCharacterId = p.selectedCharacterId
+      }
+    } catch {}
+  }
+  function savePrefs() {
+    try {
+      const data = { viewMode, typeView, showCompleted, selectedCharacterId }
+      localStorage.setItem(PERSIST_KEY, JSON.stringify(data))
+    } catch {}
+  }
+  
   onMount(async () => {
+    loadPrefs()
     await loadData()
     if (selectedCharacterServers.length > 0) {
       startResetTimers()
@@ -43,7 +66,8 @@
       
       // Load tasks for selected character (default to first)
       if (characters.length > 0) {
-        if (!selectedCharacterId) selectedCharacterId = characters[0].id
+        const hasSelected = characters.some(c => c.id === selectedCharacterId)
+        if (!hasSelected) selectedCharacterId = characters[0].id
         // Load all characters' tasks for byType view and cache
         try {
           const results = await Promise.all(
@@ -94,6 +118,7 @@
       console.error('Error loading dashboard data:', error)
     } finally {
       loading = false
+      savePrefs()
     }
   }
 
@@ -234,6 +259,7 @@
       if (!characterId) { displayedTasks = []; return }
       const characterTasks = await api.getCharacterTasks(characterId)
       displayedTasks = characterTasks
+      savePrefs()
     } catch (e) {
       displayedTasks = []
     }
@@ -350,7 +376,7 @@
               <!-- Second row: view and filters (left aligned) -->
               <div class="mt-3 flex items-center gap-4">
                 <label for="dash-viewmode" class="text-xs text-gray-700 dark:text-gray-300">View</label>
-                <select id="dash-viewmode" bind:value={viewMode} class="select-input-xs">
+                <select id="dash-viewmode" bind:value={viewMode} on:change={savePrefs} class="select-input-xs">
                   <option value="byCharacter">By Character</option>
                   <option value="byType">By Type</option>
                 </select>
@@ -364,7 +390,7 @@
                   </select>
                 {:else}
                   <label for="dash-type" class="text-xs text-gray-700 dark:text-gray-300">Type</label>
-                  <select id="dash-type" bind:value={typeView} class="select-input-xs">
+                  <select id="dash-type" bind:value={typeView} on:change={savePrefs} class="select-input-xs">
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
                     <option value="one-time">One-time</option>
@@ -379,7 +405,7 @@
                   class={`text-xs rounded-md border px-3 py-1.5 transition-colors ${showCompleted 
                     ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer' 
                     : 'opacity-80 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'}`}
-                  on:click={() => showCompleted = !showCompleted}
+                  on:click={() => { showCompleted = !showCompleted; savePrefs() }}
                   aria-pressed={showCompleted}
                   title={showCompleted ? 'Hide completed tasks' : 'Show completed tasks'}
                 >
