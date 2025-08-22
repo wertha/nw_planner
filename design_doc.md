@@ -1275,6 +1275,83 @@ Testing checklist (Calendar)
 - Legend renders below the calendar; no duplicated navigation controls.
 - Opening/closing the Event modal from Calendar repeatedly preserves focus and input interactivity; edited events save.
 
+### 9.7 Event Templates/Presets — Plan
+
+Goals
+- Speed up creation of frequently used events by letting users save reusable templates/presets.
+- Replace “Quick War” with a general “New from Template” flow.
+- Keep templates independent of characters; server time resolution happens at event creation time from the chosen character.
+
+Scope and UX
+- Templates live under Events: a compact "Templates" panel with Create, Edit, Delete.
+- Creating an event:
+  - From Events list or Calendar: buttons "Create Event" and a split-button/menu "New from Template".
+  - From Dashboard upcoming events card: optional quick entry to "New from Template".
+- EventModal:
+  - New "Apply Template" select at the top. Choosing a template sets relevant fields immediately (name, description, type, participation, location, notification settings, preferred time mode). Event time remains empty; the user selects it.
+  - New segmented control already exists for Local/Server time; templates can carry a preferred default for this control.
+- Replace Quick War:
+  - Remove single-purpose "Quick War". Seed a default "War" template with sensible defaults. Users can duplicate/modify to suit their company.
+
+Data Model
+- New table: `event_templates`
+  - `id INTEGER PRIMARY KEY AUTOINCREMENT`
+  - `name TEXT NOT NULL UNIQUE` (template label)
+  - `event_type TEXT NOT NULL`
+  - `description TEXT`
+  - `location TEXT`
+  - `participation_status TEXT CHECK(participation_status IN ('Signed Up','Confirmed','Absent','Tentative')) DEFAULT 'Signed Up'`
+  - `notification_enabled BOOLEAN DEFAULT 1`
+  - `notification_minutes INTEGER DEFAULT 30`
+  - `preferred_time_mode TEXT CHECK(preferred_time_mode IN ('local','server')) DEFAULT 'local'`
+  - `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+  - `updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+- No server/character linkage at the template level; those are decided when instantiating the event.
+
+Renderer → IPC → Service Contracts
+- Renderer (api.js):
+  - `getEventTemplates()` → Template[]
+  - `createEventTemplate(template)`
+  - `updateEventTemplate(id, partial)`
+  - `deleteEventTemplate(id)`
+- IPC channels:
+  - `template:getAll`, `template:create`, `template:update`, `template:delete`
+- Service (eventTemplateService.js):
+  - Prepared statements for CRUD; validation of enums and ranges.
+  - Seed default templates on first run if table empty: e.g., "War", "Company Meeting", "PvE Run".
+
+Event Creation Flow with Templates
+- When a template is chosen in `EventModal`:
+  - Set `formData` fields: `name`, `description`, `event_type`, `location`, `participation_status`, `notification_enabled`, `notification_minutes`.
+  - Set `timeMode` from `preferred_time_mode`.
+  - Leave `event_time` empty; user selects date/time.
+- Submission already converts based on `timeMode`:
+  - Local → `new Date(...).toISOString()`.
+  - Server → `zonedTimeToUtc(..., selectedCharacter.server_timezone).toISOString()`.
+
+UI Changes
+- Events page: add Templates panel (list + actions) and "New from Template" split-button.
+- EventModal: add "Apply Template" select. When clicked/changed, populate fields as described above.
+- Calendar: add context menu "New from Template" on date cell (optional, later).
+- Remove "Quick War" button/action; point to Templates.
+
+Migrations
+- Add `event_templates` table and indexes; idempotent creation.
+- Seed default templates if none exist or when specifically requested via a "Seed Defaults" button in Templates panel.
+
+Edge Cases & Rules
+- Template names must be unique (show friendly error on duplicate).
+- Editing a template must not retroactively change existing events (templates are only used at creation time).
+- Deleting a template does not affect existing events.
+- If a template’s `preferred_time_mode` is 'server' but no character is selected yet, default to 'server' mode but show the helper text indicating timezone will come from character; conversion still occurs at submit time.
+
+Testing Plan
+- CRUD: create, update, delete templates; validation of unique name, enum values.
+- Apply: selecting a template populates fields; switching templates updates fields; manual edits after apply persist for this event only.
+- Time mode: applying a template toggles the segmented control; submit stores UTC correctly for both modes.
+- Replacement: "Quick War" removed; seeded "War" template available; creating from this template yields expected defaults and correct time handling.
+- Persistence: templates persist across app restarts; events created from templates are indistinguishable from manually created ones.
+
 ### 10.5 Tasks — Weekly reset behavior
 
 Changes
