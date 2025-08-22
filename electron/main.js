@@ -144,6 +144,32 @@ function setupIpcHandlers() {
     ipcMain.handle('server:initializeDefaultServers', async () => {
         return await serverService.initializeDefaultServers()
     })
+
+    // Server import/clear
+    ipcMain.handle('server:importFromFile', async (event, filePath) => {
+        return await serverService.importFromFile(filePath)
+    })
+
+    ipcMain.handle('server:appendFromSnapshot', async (event, snapshotObject) => {
+        return await serverService.appendFromSnapshotObject(snapshotObject)
+    })
+
+    ipcMain.handle('server:clearUnused', async () => {
+        return await serverService.clearUnusedServers()
+    })
+
+    ipcMain.handle('server:retrieveLatest', async () => {
+        const url = 'https://nwdb.info/server-status/servers_24h.json'
+        try {
+            const res = await fetch(url)
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            const json = await res.json()
+            return await serverService.appendFromSnapshotObject(json)
+        } catch (error) {
+            console.error('Failed to retrieve server list:', error)
+            throw error
+        }
+    })
     
     // Task operations
     ipcMain.handle('task:getAll', async () => {

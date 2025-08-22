@@ -315,6 +315,25 @@ class ApiService {
         }
     }
 
+    // Import/append servers
+    async importServersFromFile(filePath) {
+        await this.init()
+        if (!this.isElectron) throw new Error('Import requires Electron mode')
+        return await this.electronAPI.servers.importFromFile(filePath)
+    }
+
+    async clearUnusedServers() {
+        await this.init()
+        if (!this.isElectron) throw new Error('Clear requires Electron mode')
+        return await this.electronAPI.servers.clearUnused()
+    }
+
+    async retrieveLatestServers() {
+        await this.init()
+        if (!this.isElectron) throw new Error('Retrieve requires Electron mode')
+        return await this.electronAPI.servers.retrieveLatest()
+    }
+
     async getCharacterStatistics() {
         await this.init()
         
