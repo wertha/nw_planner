@@ -831,6 +831,11 @@ Data Model
   - `notification_enabled BOOLEAN DEFAULT 1`
   - `notification_minutes INTEGER DEFAULT 30`
   - `preferred_time_mode TEXT CHECK(preferred_time_mode IN ('local','server')) DEFAULT 'local'`
+  - `timezone_source TEXT CHECK(timezone_source IN ('templateServer','selectedCharacter','local')) DEFAULT NULL`
+  - `template_server_name TEXT`
+  - `template_server_timezone TEXT`
+  - `time_strategy TEXT CHECK(time_strategy IN ('relativeOffset','nextDayAtTime','nextWeekdayAtTime','fixedDateTime')) DEFAULT NULL`
+  - `time_params TEXT` -- JSON blob; e.g., {"offsetMinutes":60} or {"timeOfDay":"20:00"} or {"weekday":2,"timeOfDay":"20:00"} or {"isoDateTime":"2025-03-01T20:00"}
   - `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
   - `updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
 - No server/character linkage at the template level; those are decided when instantiating the event.
@@ -851,14 +856,20 @@ Event Creation Flow with Templates
 - When a template is chosen in `EventModal`:
   - Set `formData` fields: `name`, `description`, `event_type`, `location`, `participation_status`, `notification_enabled`, `notification_minutes`.
   - Set `timeMode` from `preferred_time_mode`.
-  - Leave `event_time` empty; user selects date/time.
-- Submission already converts based on `timeMode`:
-  - Local → `new Date(...).toISOString()`.
-  - Server → `zonedTimeToUtc(..., selectedCharacter.server_timezone).toISOString()`.
+  - If `time_strategy` is present and the timezone source is resolvable (template server tz or selected character’s tz or local), compute `event_time` per strategy; otherwise leave empty and show helper.
+  - Strategies:
+    - `relativeOffset`: now + `offsetMinutes` (timezone-independent instant)
+    - `nextDayAtTime`: tomorrow at `timeOfDay` in tzSource → UTC
+    - `nextWeekdayAtTime`: next `weekday` at `timeOfDay` in tzSource → UTC
+    - `fixedDateTime`: interpret `isoDateTime` as wall time in tzSource → UTC
+-- Submission converts per current `timeMode`:
+  - Local → `new Date(...).toISOString()`
+  - Server → `zonedTimeToUtc(..., resolvedServerTimezone).toISOString()`
 
 UI Changes
 - Events page: add Templates panel (list + actions) and "New from Template" split-button.
 - EventModal: add "Apply Template" select. When clicked/changed, populate fields as described above.
+  - Show a small computed summary (e.g., "Next Tue 20:00 America/Los_Angeles → 2025-03-12T04:00Z"); recompute when character or time mode changes.
 - Calendar: add context menu "New from Template" on date cell (optional, later).
 - Remove "Quick War" button/action; point to Templates.
 
