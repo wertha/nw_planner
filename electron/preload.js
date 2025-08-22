@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getServerTimezone: (serverName) => ipcRenderer.invoke('server:getServerTimezone', serverName),
         initializeDefaultServers: () => ipcRenderer.invoke('server:initializeDefaultServers'),
         importFromFile: (filePath) => ipcRenderer.invoke('server:importFromFile', filePath),
-        appendFromSnapshot: (snapshotObject) => ipcRenderer.invoke('server:appendFromSnapshot', snapshotObject),
+        retrieveLatest: () => ipcRenderer.invoke('server:retrieveLatest'),
         clearUnused: () => ipcRenderer.invoke('server:clearUnused')
     },
     

@@ -173,41 +173,17 @@
     }
   }
 
-  async function importServersFromFile() {
-    try {
-      // Ask user to pick a JSON file via native dialog
-      const { showAlert } = await import('../stores/dialog.js')
-      // For simplicity in this pass, assume a fixed path prompt: instruct user to place file path
-      const filePath = prompt('Enter full path to servers_24h.json snapshot file')
-      if (!filePath) return
-      const result = await api.importServersFromFile(filePath)
-      await loadServers()
-      await loadServerStats()
-      await showAlert(`Import complete. Inserted: ${result.inserted}\nDuplicates: ${result.duplicates}\nInactive skipped: ${result.skippedInactive}\nUnknown region skipped: ${result.skippedUnknownRegion}`, 'Import Servers', 'OK')
-    } catch (error) {
-      console.error('Error importing servers:', error)
-      const { showAlert } = await import('../stores/dialog.js')
-      await showAlert('Failed to import servers: ' + (error?.message || error), 'Error', 'OK')
-    }
-  }
-
-  async function appendServersFromClipboard() {
+  async function retrieveLatestServers() {
     try {
       const { showAlert } = await import('../stores/dialog.js')
-      const text = await navigator.clipboard.readText()
-      if (!text) {
-        await showAlert('Clipboard is empty.', 'Append Servers', 'OK')
-        return
-      }
-      const snapshot = JSON.parse(text)
-      const result = await api.appendServersFromSnapshot(snapshot)
+      const result = await api.retrieveLatestServers()
       await loadServers()
       await loadServerStats()
-      await showAlert(`Append complete. Inserted: ${result.inserted}\nDuplicates: ${result.duplicates}\nInactive skipped: ${result.skippedInactive}\nUnknown region skipped: ${result.skippedUnknownRegion}`, 'Append Servers', 'OK')
+      await showAlert(`Retrieved latest list. Inserted: ${result.inserted}\nDuplicates: ${result.duplicates}\nInactive skipped: ${result.skippedInactive}\nUnknown region skipped: ${result.skippedUnknownRegion}`, 'Retrieve Server List', 'OK')
     } catch (error) {
-      console.error('Error appending servers:', error)
+      console.error('Error retrieving servers:', error)
       const { showAlert } = await import('../stores/dialog.js')
-      await showAlert('Failed to append servers: ' + (error?.message || error), 'Error', 'OK')
+      await showAlert('Failed to retrieve server list: ' + (error?.message || error), 'Error', 'OK')
     }
   }
 
@@ -333,8 +309,7 @@
           </div>
           <div class="flex items-center gap-2">
             <button on:click={() => openServerModal()} class="px-4 py-2 bg-nw-blue text-white rounded-md hover:bg-nw-blue-dark transition-colors">Add Server</button>
-            <button on:click={importServersFromFile} class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Import from File</button>
-            <button on:click={appendServersFromClipboard} class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Append from Clipboard</button>
+            <button on:click={retrieveLatestServers} class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Retrieve Server List</button>
             <button on:click={clearUnusedServers} class="px-3 py-2 bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-200 rounded-md hover:bg-red-100 dark:hover:bg-red-800 transition-colors">Clear Unused</button>
           </div>
         </div>
