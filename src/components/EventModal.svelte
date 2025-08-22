@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte'
   import { format } from 'date-fns'
+  import { zonedTimeToUtc } from 'date-fns-tz'
   
   export let show = false
   export let editingEvent = null
@@ -31,6 +32,7 @@
   let initializedForKey = null
   let nameInputEl
   let submitting = false
+  let timeMode = 'local' // 'local' | 'server'
   
   // Event types
   const eventTypes = [
@@ -91,6 +93,7 @@
       timezone: editingEvent.timezone || ''
     }
     isValid = true
+    timeMode = 'local'
   }
   
   function resetForm() {
@@ -110,6 +113,7 @@
     }
     errors = {}
     isValid = true
+    timeMode = 'local'
   }
   
   function formatDateTimeLocal(dateString) {
@@ -162,11 +166,26 @@
       return
     }
     
+    // Determine timezone based on mode
+    let effectiveTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (timeMode === 'server') {
+      // Use selected character's server timezone
+      const character = characters.find(c => c.id === parseInt(formData.character_id))
+      effectiveTimezone = character?.server_timezone || formData.timezone || effectiveTimezone
+    } else {
+      effectiveTimezone = formData.timezone || effectiveTimezone
+    }
+
+    // Compute UTC ISO based on selected mode
+    const eventTimeIso = timeMode === 'server'
+      ? zonedTimeToUtc(formData.event_time, effectiveTimezone).toISOString()
+      : new Date(formData.event_time).toISOString()
+
     // Format event data for submission
     const eventData = {
       ...formData,
-      event_time: new Date(formData.event_time).toISOString(),
-      timezone: formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+      event_time: eventTimeIso,
+      timezone: effectiveTimezone
     }
     
     submitting = true
@@ -341,9 +360,19 @@
         <!-- Event Time and Participation Status -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label for="event_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Event Time *
-            </label>
+            <div class="flex items-center justify-between mb-2">
+              <label for="event_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Event Time *
+              </label>
+              <div class="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button type="button" class={`px-3 py-1 text-xs ${timeMode === 'local' ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`} on:click={() => timeMode = 'local'} aria-pressed={timeMode === 'local'}>
+                  Local Time
+                </button>
+                <button type="button" class={`px-3 py-1 text-xs border-l border-gray-300 dark:border-gray-600 ${timeMode === 'server' ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`} on:click={() => timeMode = 'server'} aria-pressed={timeMode === 'server'}>
+                  Server Time
+                </button>
+              </div>
+            </div>
             <input
               type="datetime-local"
               id="event_time"
@@ -352,6 +381,13 @@
               class:border-red-500={errors.event_time}
               required
             />
+            <div class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+              {#if timeMode === 'server'}
+                Using server timezone from character: {characters.find(c => c.id === parseInt(formData.character_id))?.server_timezone || formData.timezone}
+              {:else}
+                Using your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+              {/if}
+            </div>
             {#if errors.event_time}
               <p class="mt-1 text-sm text-red-600 dark:text-red-400">{errors.event_time}</p>
             {/if}
