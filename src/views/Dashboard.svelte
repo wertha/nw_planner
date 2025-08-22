@@ -18,7 +18,7 @@
   // Tasks card controls
   let showCompleted = false
   let viewMode = 'byCharacter' // 'byCharacter' | 'byType'
-  let typeView = 'daily' // 'daily' | 'weekly'
+  let typeView = 'daily' // 'daily' | 'weekly' | 'one-time'
 
   // Cache of tasks for each character (for byType view)
   let tasksByCharacter = {}
@@ -248,7 +248,11 @@
   // ByType groupings: build list of { character, tasks } based on typeView
   $: byTypeGroups = (characters || []).map(c => {
     const tasks = (tasksByCharacter[c.id] || [])
-      .filter(t => (typeView === 'daily' ? t.type === 'daily' : t.type === 'weekly'))
+      .filter(t => {
+        if (typeView === 'daily') return t.type === 'daily'
+        if (typeView === 'weekly') return t.type === 'weekly'
+        return t.type === 'one-time'
+      })
       .filter(t => showCompleted ? true : !t.completed)
       .map(t => ({ ...t, __characterId: c.id }))
       .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
@@ -319,45 +323,50 @@
         </div>
 
         <div class="card">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
-            {#if characters.length > 0}
-            <div class="flex items-center gap-4">
-              <!-- Show/Hide Completed toggle -->
-              <button
-                type="button"
-                class={`text-xs rounded-md border px-3 py-1.5 transition-colors ${showCompleted 
-                  ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer' 
-                  : 'opacity-80 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'}`}
-                on:click={() => showCompleted = !showCompleted}
-                aria-pressed={showCompleted}
-                title={showCompleted ? 'Hide completed tasks' : 'Show completed tasks'}
-              >
-                {showCompleted ? 'Hide Completed' : 'Show Completed'}
-              </button>
-
-              <!-- View mode -->
-              <label for="dash-viewmode" class="text-xs text-gray-700 dark:text-gray-300">View</label>
-              <select id="dash-viewmode" bind:value={viewMode} class="select-input-xs">
-                <option value="byCharacter">By Character</option>
-                <option value="byType">By Type</option>
-              </select>
-
-              {#if viewMode === 'byCharacter'}
-                <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
-                <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input-xs">
-                  {#each characters as c}
-                    <option value={c.id}>{c.name}</option>
-                  {/each}
-                </select>
-              {:else}
-                <label for="dash-type" class="text-xs text-gray-700 dark:text-gray-300">Type</label>
-                <select id="dash-type" bind:value={typeView} class="select-input-xs">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                </select>
+          <div class="mb-3">
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
+              {#if characters.length > 0}
+                <!-- Show/Hide Completed toggle (right aligned) -->
+                <button
+                  type="button"
+                  class={`text-xs rounded-md border px-3 py-1.5 transition-colors ${showCompleted 
+                    ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer' 
+                    : 'opacity-80 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'}`}
+                  on:click={() => showCompleted = !showCompleted}
+                  aria-pressed={showCompleted}
+                  title={showCompleted ? 'Hide completed tasks' : 'Show completed tasks'}
+                >
+                  {showCompleted ? 'Hide Completed' : 'Show Completed'}
+                </button>
               {/if}
             </div>
+
+            {#if characters.length > 0}
+              <!-- Second row: view and filters (left aligned) -->
+              <div class="mt-3 flex items-center gap-4">
+                <label for="dash-viewmode" class="text-xs text-gray-700 dark:text-gray-300">View</label>
+                <select id="dash-viewmode" bind:value={viewMode} class="select-input-xs">
+                  <option value="byCharacter">By Character</option>
+                  <option value="byType">By Type</option>
+                </select>
+
+                {#if viewMode === 'byCharacter'}
+                  <label for="dash-character" class="text-xs text-gray-700 dark:text-gray-300">Character</label>
+                  <select id="dash-character" bind:value={selectedCharacterId} on:change={(e)=> loadTasksForCharacter(parseInt(e.target.value))} class="select-input-xs">
+                    {#each characters as c}
+                      <option value={c.id}>{c.name}</option>
+                    {/each}
+                  </select>
+                {:else}
+                  <label for="dash-type" class="text-xs text-gray-700 dark:text-gray-300">Type</label>
+                  <select id="dash-type" bind:value={typeView} class="select-input-xs">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="one-time">One-time</option>
+                  </select>
+                {/if}
+              </div>
             {/if}
           </div>
           {#if characters.length === 0}
