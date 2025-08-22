@@ -212,10 +212,8 @@
       'War': '#ef4444',
       'Invasion': '#f97316',
       'Company Event': '#8b5cf6',
-      'Expedition': '#06b6d4',
+      'PvE': '#06b6d4',
       'PvP': '#dc2626',
-      'Crafting': '#65a30d',
-      'Gathering': '#16a34a',
       'Custom': '#6b7280'
     }
     
@@ -237,10 +235,8 @@
       'War': '#b91c1c',
       'Invasion': '#c2410c',
       'Company Event': '#7c3aed',
-      'Expedition': '#0891b2',
+      'PvE': '#0891b2',
       'PvP': '#991b1b',
-      'Crafting': '#4d7c0f',
-      'Gathering': '#15803d',
       'Custom': '#4b5563'
     }
     
@@ -477,7 +473,7 @@
         </div>
         <div class="flex items-center space-x-2">
           <div class="w-3 h-3 bg-cyan-500 rounded"></div>
-          <span class="text-gray-600 dark:text-gray-400">Expedition</span>
+          <span class="text-gray-600 dark:text-gray-400">PvE</span>
         </div>
         <div class="flex items-center space-x-2">
           <div class="w-3 h-3 bg-blue-200 rounded"></div>
