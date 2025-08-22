@@ -1,4 +1,5 @@
 import database from './database.js'
+import fs from 'fs'
 
 class ServerService {
     constructor() {
@@ -287,6 +288,95 @@ class ServerService {
             return this.statements.getServerNameList.all().map(row => row.name)
         } catch (error) {
             console.error('Error getting server name list:', error)
+            throw error
+        }
+    }
+
+    // Append servers from a NWDB snapshot object (data.servers)
+    async appendFromSnapshotObject(snapshot) {
+        await this.initStatements()
+        try {
+            const REGION_TO_DB = {
+                'us-east-1': { region: 'US East', timezone: 'America/New_York' },
+                'us-west-2': { region: 'US West', timezone: 'America/Los_Angeles' },
+                'eu-central-1': { region: 'EU Central', timezone: 'Europe/Berlin' },
+                'sa-east-1': { region: 'SA East', timezone: 'America/Sao_Paulo' },
+                'ap-southeast-2': { region: 'AP Southeast', timezone: 'Australia/Sydney' }
+            }
+
+            const rows = snapshot?.data?.servers || []
+            const seen = new Set()
+            let inserted = 0
+            let duplicates = 0
+            let skippedInactive = 0
+            let skippedUnknownRegion = 0
+
+            for (const row of rows) {
+                if (!Array.isArray(row) || row.length < 9) continue
+                const name = String(row[4] ?? '').trim()
+                const awsRegion = String(row[6] ?? '')
+                const state = String(row[8] ?? '')
+                if (!name) continue
+                if (state !== 'ACTIVE') { skippedInactive++; continue }
+                const map = REGION_TO_DB[awsRegion]
+                if (!map) { skippedUnknownRegion++; continue }
+                const key = name.toLowerCase()
+                if (seen.has(key)) { duplicates++; continue }
+                seen.add(key)
+
+                // Skip if already exists in DB
+                const existing = this.statements.getByName.get(name)
+                if (existing) { duplicates++; continue }
+
+                try {
+                    await this.create({ name, region: map.region, timezone: map.timezone, active_status: true })
+                    inserted++
+                } catch (err) {
+                    // Treat creation conflicts as duplicates
+                    duplicates++
+                }
+            }
+
+            return { inserted, duplicates, skippedInactive, skippedUnknownRegion, totalProcessed: rows.length }
+        } catch (error) {
+            console.error('Error appending servers from snapshot:', error)
+            throw error
+        }
+    }
+
+    // Import from a JSON file path (blocking read, main process only)
+    async importFromFile(filePath) {
+        await this.initStatements()
+        try {
+            const text = fs.readFileSync(filePath, 'utf-8')
+            const json = JSON.parse(text)
+            return await this.appendFromSnapshotObject(json)
+        } catch (error) {
+            console.error('Error importing servers from file:', error)
+            throw error
+        }
+    }
+
+    // Clear servers that are unused by characters or events
+    async clearUnusedServers() {
+        await this.initStatements()
+        try {
+            const all = this.statements.getAll.all()
+            let deleted = 0
+            let inUse = 0
+            for (const s of all) {
+                const charactersUsing = (await this.db.prepare('SELECT COUNT(*) as count FROM characters WHERE server_name = ?')).get(s.name)
+                const eventsUsing = (await this.db.prepare('SELECT COUNT(*) as count FROM events WHERE server_name = ?')).get(s.name)
+                if ((charactersUsing.count || 0) === 0 && (eventsUsing.count || 0) === 0) {
+                    this.statements.delete.run(s.id)
+                    deleted++
+                } else {
+                    inUse++
+                }
+            }
+            return { deleted, skippedInUse: inUse }
+        } catch (error) {
+            console.error('Error clearing unused servers:', error)
             throw error
         }
     }

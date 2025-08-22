@@ -31,7 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getRegionList: () => ipcRenderer.invoke('server:getRegionList'),
         getServerNameList: () => ipcRenderer.invoke('server:getServerNameList'),
         getServerTimezone: (serverName) => ipcRenderer.invoke('server:getServerTimezone', serverName),
-        initializeDefaultServers: () => ipcRenderer.invoke('server:initializeDefaultServers')
+        initializeDefaultServers: () => ipcRenderer.invoke('server:initializeDefaultServers'),
+        importFromFile: (filePath) => ipcRenderer.invoke('server:importFromFile', filePath),
+        appendFromSnapshot: (snapshotObject) => ipcRenderer.invoke('server:appendFromSnapshot', snapshotObject),
+        clearUnused: () => ipcRenderer.invoke('server:clearUnused')
     },
     
     // Database operations
