@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import api from '../services/api.js'
   import EventModal from '../components/EventModal.svelte'
+  import TemplateModal from '../components/TemplateModal.svelte'
   import { currentView } from '../stores/ui'
   
   let loading = true
@@ -12,6 +13,8 @@
   let filterCharacter = 'all'
   let showModal = false
   let editingEvent = null
+  let showTemplateModal = false
+  let editingTemplate = null
   let now = new Date()
   let nowTimer = null
   
@@ -154,16 +157,15 @@
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
       <div class="flex space-x-2">
         <button class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={openCreate}>Add New Event</button>
-        {#if templates.length > 0}
-          <div class="relative">
-            <select class="btn-secondary text-sm px-3 py-2" on:change={async (e)=>{ const tplId = e.target.value; if (!tplId) return; openCreate(); /* EventModal will apply template via user selection */ e.target.value=''; }}>
-              <option value="">New from Template…</option>
-              {#each templates as t}
-                <option value={t.id}>{t.name}</option>
-              {/each}
-            </select>
-          </div>
-        {/if}
+        <div class="relative">
+          <select class="btn-secondary text-sm px-3 py-2" on:change={async (e)=>{ const tplId = e.target.value; if (!tplId) return; openCreate(); /* user picks template in modal */ e.target.value=''; }}>
+            <option value="">New from Template…</option>
+            {#each templates as t}
+              <option value={t.id}>{t.name}</option>
+            {/each}
+          </select>
+        </div>
+        <button class="btn-secondary" on:click={()=>{ editingTemplate=null; showTemplateModal=true }}>Manage Templates</button>
       </div>
       
       <!-- Filters -->
@@ -308,4 +310,5 @@
     </div>
   {/if}
   <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
+  <TemplateModal isOpen={showTemplateModal} template={editingTemplate} on:cancel={()=>{ showTemplateModal=false; editingTemplate=null }} on:save={async (e)=>{ try { if (editingTemplate) { await api.updateEventTemplate(editingTemplate.id, e.detail) } else { await api.createEventTemplate(e.detail) } showTemplateModal=false; editingTemplate=null; await loadData() } catch (err) { console.error('Template save failed', err) } }} />
 </div> 
