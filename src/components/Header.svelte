@@ -37,7 +37,16 @@
   async function loadUpcomingEvents() {
     eventsLoading = true
     try {
-      upcomingEvents = await api.getUpcomingEvents(3)
+      const events = await api.getUpcomingEvents(10)
+      const now = new Date()
+      const cutoff = new Date(now.getTime() + 20 * 60 * 60 * 1000)
+      upcomingEvents = events
+        .filter(e => {
+          const t = new Date(e.event_time)
+          return t >= now && t <= cutoff
+        })
+        .sort((a, b) => new Date(a.event_time) - new Date(b.event_time))
+        .slice(0, 3)
     } catch (error) {
       console.error('Error loading upcoming events:', error)
       upcomingEvents = []

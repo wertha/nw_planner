@@ -66,10 +66,19 @@
         selectedCharacterServers = Array.from(byKey.values())
       }
       
-      // Load upcoming events
+      // Load upcoming events (limit to next 7 days)
       try {
-        const events = await api.getUpcomingEvents(5)
-        upcomingEvents = events.map(event => ({
+        const events = await api.getUpcomingEvents(20)
+        const now = new Date()
+        const cutoff = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        const filtered = events
+          .filter(e => {
+            const t = new Date(e.event_time)
+            return t >= now && t <= cutoff
+          })
+          .sort((a, b) => new Date(a.event_time) - new Date(b.event_time))
+          .slice(0, 5)
+        upcomingEvents = filtered.map(event => ({
           ...event,
           time: new Date(event.event_time).toLocaleTimeString('en-US', { 
             hour: '2-digit', 
@@ -326,7 +335,7 @@
           {:else}
             <div class="text-center text-gray-500 dark:text-gray-400 py-4">
               <p class="text-sm">No upcoming events</p>
-              <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => currentView.set('events')}>Create your first event →</button>
+              <button class="mt-2 text-sm text-nw-blue hover:text-nw-blue-dark" on:click={() => currentView.set('events')}>Create an event →</button>
             </div>
           {/if}
         </div>
