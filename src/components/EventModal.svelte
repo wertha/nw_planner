@@ -360,16 +360,18 @@
         <!-- Event Time and Participation Status -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label for="event_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Event Time *
-            </label>
-            <div class="mb-2 inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
-              <button type="button" class={`px-3 py-1 text-xs ${timeMode === 'local' ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`} on:click={() => timeMode = 'local'} aria-pressed={timeMode === 'local'}>
-                Local Time
-              </button>
-              <button type="button" class={`px-3 py-1 text-xs border-l border-gray-300 dark:border-gray-600 ${timeMode === 'server' ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`} on:click={() => timeMode = 'server'} aria-pressed={timeMode === 'server'}>
-                Server Time
-              </button>
+            <div class="flex items-center justify-between mb-2">
+              <label for="event_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Event Time *
+              </label>
+              <div class="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button type="button" class={`px-3 py-1 text-xs ${timeMode === 'local' ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`} on:click={() => timeMode = 'local'} aria-pressed={timeMode === 'local'}>
+                  Local Time
+                </button>
+                <button type="button" class={`px-3 py-1 text-xs border-l border-gray-300 dark:border-gray-600 ${timeMode === 'server' ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`} on:click={() => timeMode = 'server'} aria-pressed={timeMode === 'server'}>
+                  Server Time
+                </button>
+              </div>
             </div>
             <input
               type="datetime-local"
