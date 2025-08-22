@@ -37,10 +37,8 @@
     'War',
     'Invasion', 
     'Company Event',
-    'Expedition',
+    'PvE',
     'PvP',
-    'Crafting',
-    'Gathering',
     'Custom'
   ]
   
@@ -232,7 +230,7 @@
         location: 'Company Hall',
         notification_minutes: 30
       },
-      'Expedition': {
+      'PvE': {
         location: 'Dungeon',
         notification_minutes: 15
       },
@@ -240,14 +238,7 @@
         location: 'Arena/OPR',
         notification_minutes: 15
       },
-      'Crafting': {
-        location: 'Settlement',
-        notification_minutes: 10
-      },
-      'Gathering': {
-        location: 'Various',
-        notification_minutes: 10
-      }
+      
     }
     
     const defaults = eventTypeDefaults[formData.event_type]
