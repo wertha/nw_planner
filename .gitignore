@@ -104,4 +104,5 @@ pnpm-lock.yaml
 *~
 *.bak
 *.swp
-*.tmp 
+*.tmp
+context.md
