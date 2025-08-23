@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import api from '../services/api.js'
   import EventModal from '../components/EventModal.svelte'
-  import TemplateModal from '../components/TemplateModal.svelte'
+  import TemplateManager from '../components/TemplateManager.svelte'
   import { currentView } from '../stores/ui'
   
   let loading = true
@@ -13,8 +13,7 @@
   let filterCharacter = 'all'
   let showModal = false
   let editingEvent = null
-  let showTemplateModal = false
-  let editingTemplate = null
+  let showTemplateManager = false
   let now = new Date()
   let nowTimer = null
   
@@ -165,7 +164,7 @@
             {/each}
           </select>
         </div>
-        <button class="btn-secondary" on:click={()=>{ editingTemplate=null; showTemplateModal=true }}>Manage Templates</button>
+        <button class="btn-secondary" on:click={()=>{ showTemplateManager=true }}>Manage Templates</button>
       </div>
       
       <!-- Filters -->
@@ -310,5 +309,5 @@
     </div>
   {/if}
   <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
-  <TemplateModal isOpen={showTemplateModal} template={editingTemplate} on:cancel={()=>{ showTemplateModal=false; editingTemplate=null }} on:save={async (e)=>{ try { if (editingTemplate) { await api.updateEventTemplate(editingTemplate.id, e.detail) } else { await api.createEventTemplate(e.detail) } showTemplateModal=false; editingTemplate=null; await loadData() } catch (err) { console.error('Template save failed', err) } }} />
+  <TemplateManager isOpen={showTemplateManager} on:close={()=>{ showTemplateManager=false; loadData() }} on:apply={(e)=>{ showTemplateManager=false; openCreate(); /* user picks in EventModal */ }} />
 </div> 
