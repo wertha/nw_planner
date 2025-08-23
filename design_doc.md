@@ -870,6 +870,62 @@ UI Changes
 - Events page: add Templates panel (list + actions) and "New from Template" split-button.
 - EventModal: add "Apply Template" select. When clicked/changed, populate fields as described above.
   - Show a small computed summary (e.g., "Next Tue 20:00 America/Los_Angeles → 2025-03-12T04:00Z"); recompute when character or time mode changes.
+
+Dedicated Templates Manager UI (CRUD)
+- Placement and entry points
+  - Primary: Events view → Action bar → "Manage Templates" opens a dedicated manager (modal sized max-w-3xl or an inline panel below filters on desktop).
+  - Secondary: Empty state CTA when no templates exist ("Create your first template").
+- Layout (Manager modal/panel)
+  - Header: Title + "New Template" button + search input (debounced) + sort (Name | Updated).
+  - List: compact table with columns
+    - Name
+    - Type
+    - Preferred Time Mode
+    - Strategy summary (e.g., "+60m", "Tomorrow 20:00", "Tue 20:00", "2025-03-01 20:00")
+    - TZ source (Template Server | Selected Character | Local)
+    - Updated
+    - Actions (Apply → opens Event create with this template; Edit; Duplicate; Delete)
+  - Footer: pagination when >50 templates (simple next/prev) or virtualized scroll.
+- Interactions
+  - Create: opens `TemplateModal` (reused) in create mode; validation only for template name; everything else optional.
+  - Edit: row action; opens `TemplateModal` with current values; save updates list in-place.
+  - Duplicate: copies template with suffix " (copy)"; focuses name field in modal.
+  - Delete: confirms via custom dialog; deletes and refreshes list.
+  - Apply: from row action, immediately opens EventModal in create mode and pre-selects this template (EventModal shows applied badge + summary).
+  - Bulk delete (optional, later): multi-select checkboxes with "Delete selected".
+- A11y & keyboard
+  - Table rows focusable; Enter opens Edit; Shift+Enter opens Apply.
+  - All buttons are <button> elements with labels; no click-only <div>s.
+  - Manager modal has role="dialog" and ESC to close; focus trapped within.
+- Empty states
+  - No templates: illustrated message, "New Template" primary CTA, and a secondary "Seed Defaults" (inserts War/PvE/Meeting examples).
+- Persistence & state
+  - Search/sort persisted in localStorage under `nw_templates_ui`.
+  - After Save/Delete, list refreshes and preserves filters/sort.
+
+Integration with Events Page
+- Action bar
+  - Keep "Add New Event".
+  - "New from Template" split-button or select that lists templates by name (respects search state if the manager is open).
+  - "Manage Templates" opens the manager described above.
+- EventModal behavior
+  - New above-the-form banner when a template is active: "Template: War (server, +60m)" with a small "Change" or "Clear" action.
+  - Applying a different template from the inline dropdown re-fills fields and recomputes time; manual edits after apply are respected and stop auto-recompute until template is re-applied.
+- Calendar
+  - Optional later: right-click date cell → "New from Template" → list; selecting opens EventModal with that template applied.
+
+Error Handling & Messages
+- Name uniqueness: friendly error in `TemplateModal` if duplicate name.
+- Time compute unavailable: if strategy requires a tz source and none is resolvable yet, show a non-blocking helper ("Select a character or server to compute time") and allow user to proceed; event submission validates time as usual.
+- Deletion guard: deleting a template doesn’t affect existing events.
+
+Testing Additions (Section 10)
+- Templates Manager (new tests)
+  - Create/Edit/Delete/Duplicate; unique-name validation; list updates and preserves filters.
+  - Apply from row opens EventModal with fields populated and time summary computed.
+  - Empty state seeding creates defaults; they appear in both manager and "New from Template".
+- EventModal with active template
+  - Shows applied template badge; re-apply updates fields; Clear removes linkage and stops recompute.
 - Calendar: add context menu "New from Template" on date cell (optional, later).
 - Remove "Quick War" button/action; point to Templates.
 
