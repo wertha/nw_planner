@@ -8,6 +8,7 @@
   let characters = []
   let displayedTasks = []
   let upcomingEvents = []
+  let showAbsent = true
   let resetTimers = {}
   let activeTimers = []
   let selectedCharacterServers = [] // array of { name, timezone }
@@ -172,6 +173,9 @@
       : 'bg-gray-500'
   }
 
+  // Derived: visible events honoring showAbsent flag
+  $: visibleEvents = (upcomingEvents || []).filter(e => showAbsent ? true : (e.participation_status !== 'Absent'))
+
   function getPriorityClass(priority) {
     const p = (priority || '').toLowerCase()
     if (p === 'critical') return 'priority-critical'
@@ -321,10 +325,23 @@
       <!-- Left column: Upcoming Events above Tasks -->
       <div class="lg:col-span-2 space-y-6">
         <div class="card">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Upcoming Events</h2>
-          {#if upcomingEvents.length > 0}
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Events</h2>
+            <button
+              type="button"
+              class={`text-[10px] rounded-md border px-2 py-1 transition-colors ${showAbsent
+                ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer'
+                : 'opacity-80 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'}`}
+              on:click={() => { showAbsent = !showAbsent }}
+              aria-pressed={showAbsent}
+              title={showAbsent ? 'Hide Absent events' : 'Show Absent events'}
+            >
+              {showAbsent ? 'Hide Absent' : 'Show Absent'}
+            </button>
+          </div>
+          {#if visibleEvents.length > 0}
             <div class="space-y-2">
-              {#each upcomingEvents as event}
+              {#each visibleEvents as event}
                 <div class="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" role="button" tabindex="0" on:click={() => openEditEvent(event)} on:keydown={(e)=> (e.key==='Enter'||e.key===' ') && openEditEvent(event)}>
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
@@ -431,6 +448,11 @@
               </div>
             {:else if viewMode === 'byCharacter'}
               <div class="space-y-4">
+                {#if !showCompleted && dailyTasks.length === 0 && weeklyTasks.length === 0 && oneTimeTasks.length === 0}
+                  <div class="text-center text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md py-3 text-sm">
+                    🎉 All tasks for {characters.find(c=>c.id===selectedCharacterId)?.name || 'this character'} are completed. Great job!
+                  </div>
+                {/if}
                 {#if dailyTasks.length > 0}
                   <div>
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Daily</div>
@@ -507,7 +529,11 @@
               <!-- By Type view: list chosen type for each character with tasks -->
               {#if byTypeGroups.length === 0}
                 <div class="text-center text-gray-500 dark:text-gray-400 py-4">
-                  <p class="text-sm">No {typeView} tasks available.</p>
+                  {#if !showCompleted}
+                    <p class="text-sm text-green-700 dark:text-green-400">✅ All {typeView} tasks completed. Nice work!</p>
+                  {:else}
+                    <p class="text-sm">No {typeView} tasks available.</p>
+                  {/if}
                 </div>
               {:else}
                 <div class="space-y-3">
