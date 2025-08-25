@@ -206,27 +206,38 @@ class ResetTimerService {
 
     // Get next reset periods for database queries
     getResetPeriods(serverName) {
-        const serverTime = this.getServerTime(serverName)
-        
-        // Daily reset period (YYYY-MM-DD format)
-        let dailyPeriod = serverTime.toISOString().split('T')[0]
-        
-        // If it's before 5 AM server time, use previous day
-        if (serverTime.getHours() < 5) {
-            const prevDay = new Date(serverTime)
-            prevDay.setDate(prevDay.getDate() - 1)
-            dailyPeriod = prevDay.toISOString().split('T')[0]
+        const tz = TimeZoneService.serverTimeZones[serverName]
+        const now = new Date()
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = fmt.formatToParts(now)
+        const pick = (t) => parts.find(p => p.type === t)?.value
+        const y = parseInt(pick('year'), 10)
+        const m = parseInt(pick('month'), 10)
+        const d = parseInt(pick('day'), 10)
+        const H = parseInt(pick('hour'), 10)
+
+        // Daily period (yyyy-MM-dd) in server-local time
+        let dailyY = y, dailyM = m, dailyD = d
+        if (H < 5) {
+            const prev = new Date(now.getTime() - 24 * 3600 * 1000)
+            const prevParts = fmt.formatToParts(prev)
+            dailyY = parseInt(prevParts.find(p => p.type==='year').value, 10)
+            dailyM = parseInt(prevParts.find(p => p.type==='month').value, 10)
+            dailyD = parseInt(prevParts.find(p => p.type==='day').value, 10)
         }
-        
-        // Weekly reset period (YYYY-WNN format)
+        const dailyPeriod = `${dailyY}-${String(dailyM).padStart(2,'0')}-${String(dailyD).padStart(2,'0')}`
+
+        // Weekly period (yyyy-Www) based on server-local week number
+        const serverTime = this.getServerTime(serverName)
         const year = serverTime.getFullYear()
         const weekNumber = this.getWeekNumber(serverTime)
         const weeklyPeriod = `${year}-W${weekNumber.toString().padStart(2, '0')}`
-        
-        return {
-            daily: dailyPeriod,
-            weekly: weeklyPeriod
-        }
+
+        return { daily: dailyPeriod, weekly: weeklyPeriod }
     }
 
     // Get ISO week number
