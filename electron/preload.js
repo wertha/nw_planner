@@ -84,6 +84,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         createInvasion: (eventData) => ipcRenderer.invoke('event:createInvasion', eventData),
         createCompanyEvent: (eventData) => ipcRenderer.invoke('event:createCompanyEvent', eventData)
     },
+    // Event templates
+    templates: {
+        getAll: () => ipcRenderer.invoke('template:getAll'),
+        create: (template) => ipcRenderer.invoke('template:create', template),
+        update: (id, partial) => ipcRenderer.invoke('template:update', id, partial),
+        delete: (id) => ipcRenderer.invoke('template:delete', id)
+    },
     
     // Utility functions
     utils: {

@@ -2,15 +2,19 @@
   import { onMount } from 'svelte'
   import api from '../services/api.js'
   import EventModal from '../components/EventModal.svelte'
+  import TemplateManager from '../components/TemplateManager.svelte'
   import { currentView } from '../stores/ui'
   
   let loading = true
   let events = []
   let characters = []
+  let templates = []
   let filterType = 'all'
   let filterCharacter = 'all'
   let showModal = false
   let editingEvent = null
+  let showTemplateManager = false
+  let pendingTemplateId = null
   let now = new Date()
   let nowTimer = null
   
@@ -28,13 +32,15 @@
     loading = true
     try {
       // Load events and characters
-      const [eventsData, charactersData] = await Promise.all([
+      const [eventsData, charactersData, templatesData] = await Promise.all([
         api.getEvents(),
-        api.getActiveCharacters()
+        api.getActiveCharacters(),
+        api.getEventTemplates()
       ])
       
       events = eventsData
       characters = charactersData
+      templates = templatesData
     } catch (error) {
       console.error('Error loading events data:', error)
     } finally {
@@ -63,8 +69,10 @@
     }
   }
 
-  function openCreate() {
+  let initialTemplateId = null
+  function openCreate(tplId = null) {
     editingEvent = null
+    initialTemplateId = tplId
     showModal = true
   }
   function openEdit(ev) {
@@ -81,6 +89,7 @@
       }
       showModal = false
       editingEvent = null
+      pendingTemplateId = null
       await loadData()
     } catch (err) {
       console.error('Error saving event:', err)
@@ -151,7 +160,15 @@
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
       <div class="flex space-x-2">
         <button class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={openCreate}>Add New Event</button>
-        <button class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={async () => { try { const inOneHour = new Date(Date.now() + 60 * 60 * 1000).toISOString(); await api.createWarEvent({ name: 'War', event_time: inOneHour, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }); await loadData() } catch (e) { console.error('Quick War failed', e) } }}>Quick War</button>
+        <div class="relative">
+          <select class="btn-secondary text-sm px-3 py-2" on:change={(e)=>{ const tplId = e.target.value; if (!tplId) return; pendingTemplateId = tplId; openCreate(); e.target.value=''; }}>
+            <option value="">New from Template…</option>
+            {#each templates as t}
+              <option value={t.id}>{t.name}</option>
+            {/each}
+          </select>
+        </div>
+        <button class="btn-secondary" on:click={()=>{ showTemplateManager=true }}>Manage Templates</button>
       </div>
       
       <!-- Filters -->
@@ -295,5 +312,6 @@
       {/if}
     </div>
   {/if}
-  <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
+  <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} initialTemplateId={pendingTemplateId} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null; pendingTemplateId = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; pendingTemplateId = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
+  <TemplateManager isOpen={showTemplateManager} on:close={()=>{ showTemplateManager=false; loadData() }} on:apply={(e)=>{ showTemplateManager=false; pendingTemplateId = e.detail.id; editingEvent=null; showModal=true }} />
 </div> 

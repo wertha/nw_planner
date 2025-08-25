@@ -742,6 +742,269 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 #### 9.5.5 Risks & Mitigations
 - Timezone math is error-prone without Temporal; stick to `Intl` + careful normalization. Consider adopting a lightweight library (e.g., `luxon`) if complexity grows.
 
+### 9.6 Timezone & Reset Calculations — Updated Plan (Timezone-First)
+
+Problem statement
+- Current countdowns derive timezone from a hardcoded server-name→timezone map. Any DB server not in that map is treated as unknown, which yields blank/incorrect rows in diagnostics and UI.
+- The wall-clock→UTC conversion currently builds a local Date and attempts to infer timezone offset via `toLocaleString`, which produces wrong instants when the local machine timezone differs from the server timezone and is error-prone around DST.
+
+Design goals
+- Time math must be done relative to an authoritative IANA timezone from the database (e.g., `America/New_York`).
+- Countdown to resets must be DST-safe and consistent across OS timezones.
+- Eliminate reliance on server-name heuristics for time computations.
+
+Key decisions
+- Make timezone the source of truth everywhere (servers carry `servers.timezone`; characters carry `characters.server_timezone`).
+- Use `date-fns-tz` for robust conversions:
+  - `utcToZonedTime(nowUtc, tz)` → server-local wall time
+  - `zonedTimeToUtc(serverLocalDate, tz)` → correct UTC instant for 05:00 server time and for Tue 05:00 server time
+
+API and service changes
+- Add timezone-centric helpers in `src/services/timezone.js`:
+  - `getServerTimeDisplayByTimezone(tz)` → returns `{ time, date, timezone }` for the server-local now
+  - `getNextResetUTCByTimezone(tz, 'daily'|'weekly')` → returns the exact UTC instant for the next reset
+  - `getTimeUntilResetByTimezone(tz, type)` → returns `{ hours, minutes, seconds, totalMs, formatted }`
+- Refactor `src/services/resetTimerService.js` to accept server objects:
+  - `startResetTimerForServer({ name, timezone }, callback)`
+  - `getMultiServerResetInfo(servers)` where each item has `{ name, timezone }`
+  - Name-based wrappers remain for legacy but internally resolve to timezone once.
+- Extend `src/services/api.js`:
+  - `getResetTimers(serversOrNames)` accepts either servers with `name/timezone` or, if names are given, resolves them via DB and then computes.
+  - `startResetTimerForServer(server, callback)` for live updates in the dashboard.
+
+UI updates
+- Dashboard uses server objects (name+timezone) to compute initial timers and start live timers. No name→timezone lookup on the client anymore.
+- A temporary Settings preview was used to validate calculations and has been removed after verification.
+- Quick War schedules one hour from now.
+
+Custom Dialogs (NEW)
+- Replaced native `alert/confirm` with an in-app dialog component to avoid Electron focus issues.
+- All warnings/confirmations now use in-app dialogs.
+
+Modal Backdrop Interaction (NEW)
+- Backdrop close requires mousedown and click on the backdrop element, preventing accidental closes when drag-selecting text that ends outside the input.
+
+Correctness notes
+- Daily reset is computed as the next 05:00 in the server’s local day using `zonedTimeToUtc` (roll forward one day if already past).
+- Weekly reset is computed as the next Tuesday 05:00 in the server’s local calendar; if it’s already past that instant, add 7 days.
+- All countdowns subtract `nowUtc` from the computed UTC instant — no mixing of wall time and UTC, so results are stable regardless of the user’s OS timezone.
+
+Migration & compatibility
+- Keep the legacy name map for display/testing only. All countdown logic uses DB timezones.
+- Where inputs are still arrays of names, resolve them to `{ name, timezone }` via `servers` in the DB before computing.
+- Removed the temporary Settings debug section post-validation.
+
+Testing checklist
+- For a set of servers covering NA/EU/APAC with mixed DST status:
+  - Verify “server time” matches official local time for each server’s timezone.
+  - On different local OS timezones, verify countdown numbers are identical (UTC subtraction only).
+  - Around DST transitions, confirm daily and weekly next-reset UTC instants remain correct and advance monotonically.
+  - On Thursday (local), validate weekly ≈ daily + 96h for most servers; differences allowed where server-local date differs.
+  - Verify Tasks completion periods (daily/weekly) align with countdown reset boundaries for each character’s `server_timezone`.
+
+### 9.7 Event Templates/Presets — Plan
+
+Goals
+- Speed up creation of frequently used events by letting users save reusable templates/presets.
+- Replace “Quick War” with a general “New from Template” flow.
+- Keep templates independent of characters; server time resolution happens at event creation time from the chosen character.
+
+Scope and UX
+- Templates live under Events: a compact "Templates" panel with Create, Edit, Delete.
+- Creating an event:
+  - From Events list or Calendar: buttons "Create Event" and a split-button/menu "New from Template".
+  - From Dashboard upcoming events card: optional quick entry to "New from Template".
+- EventModal:
+  - "Apply Template" select at the top. Choosing a template sets relevant fields immediately (name, description, type, participation, location, notification settings). If the template defines a timing strategy, a local event time is computed.
+  - The Local/Server segmented control is owned by EventModal; templates do not carry a preferred mode.
+- Replace Quick War:
+  - Remove single-purpose "Quick War". Seed a default "War" template with sensible defaults. Users can duplicate/modify to suit their company.
+
+Data Model
+- New table: `event_templates`
+  - `id INTEGER PRIMARY KEY AUTOINCREMENT`
+  - `name TEXT NOT NULL UNIQUE` (template label)
+  - `event_type TEXT NOT NULL`
+  - `description TEXT`
+  - `location TEXT`
+  - `participation_status TEXT CHECK(participation_status IN ('Signed Up','Confirmed','Absent','Tentative')) DEFAULT 'Signed Up'`
+  - `notification_enabled BOOLEAN DEFAULT 1`
+  - `notification_minutes INTEGER DEFAULT 30`
+  - `time_strategy TEXT CHECK(time_strategy IN ('relative','fixed')) DEFAULT NULL`
+  - `time_params TEXT` -- JSON blob; relative: `{ unit: 'hour'|'day'|'week' }`; fixed: `{ when: 'today'|'tomorrow'|'weekday', weekday?:0-6, timeOfDay:'HH:mm' }`
+  - `payload_json TEXT`
+  - `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+  - `updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+- No server/character linkage at the template level; those are decided when instantiating the event.
+
+Renderer → IPC → Service Contracts
+- Renderer (api.js):
+  - `getEventTemplates()` → Template[]
+  - `createEventTemplate(template)`
+  - `updateEventTemplate(id, partial)`
+  - `deleteEventTemplate(id)`
+- IPC channels:
+  - `template:getAll`, `template:create`, `template:update`, `template:delete`
+- Service (eventTemplateService.js):
+  - Prepared statements for CRUD; validation of enums and ranges.
+  - Seed default templates on first run if table empty: e.g., "War", "Company Meeting", "PvE Run".
+
+Event Creation Flow with Templates
+- When a template is chosen in `EventModal`:
+  - Set `formData` fields: `name`, `description`, `event_type`, `location`, `participation_status`, `notification_enabled`, `notification_minutes`.
+  - Templates no longer set a preferred time mode.
+  - If `time_strategy` is present and the timezone source is resolvable (template server tz or selected character’s tz or local), compute `event_time` per strategy; otherwise leave empty and show helper.
+  - Strategies:
+    - `relativeOffset`: now + `offsetMinutes` (timezone-independent instant)
+    - `nextDayAtTime`: tomorrow at `timeOfDay` in tzSource → UTC
+    - `nextWeekdayAtTime`: next `weekday` at `timeOfDay` in tzSource → UTC
+    - `fixedDateTime`: interpret `isoDateTime` as wall time in tzSource → UTC
+-- Submission converts per current `timeMode`:
+  - Local → `new Date(...).toISOString()`
+  - Server → `zonedTimeToUtc(..., resolvedServerTimezone).toISOString()`
+
+UI Changes
+- Events page: add Templates panel (list + actions) and "New from Template" split-button.
+- EventModal: add "Apply Template" select. When clicked/changed, populate fields as described above.
+  - Show a small computed summary (e.g., "Next Tue 20:00 America/Los_Angeles → 2025-03-12T04:00Z"); recompute when character or time mode changes.
+
+Dedicated Templates Manager UI (CRUD)
+- Placement and entry points
+  - Primary: Events view → Action bar → "Manage Templates" opens a dedicated manager (modal sized max-w-3xl or an inline panel below filters on desktop).
+  - Secondary: Empty state CTA when no templates exist ("Create your first template").
+- Layout (Manager modal/panel)
+  - Header: Title + "New Template" button + search input (debounced) + sort (Name | Updated).
+  - List: compact table with columns
+    - Name
+    - Type
+    - Strategy
+    - Updated
+    - Actions (Apply → opens Event create with this template; Edit; Duplicate; Delete)
+  - Footer: pagination when >50 templates (simple next/prev) or virtualized scroll.
+- Interactions
+  - Create: opens `TemplateModal` (reused) in create mode; validation only for template name; everything else optional.
+  - Edit: row action; opens `TemplateModal` with current values; save updates list in-place.
+  - Duplicate: copies template with suffix " (copy)"; focuses name field in modal.
+  - Delete: confirms via custom dialog; deletes and refreshes list.
+  - Apply: from row action, immediately opens EventModal in create mode and pre-selects this template (EventModal shows applied badge + summary).
+  - Bulk delete (optional, later): multi-select checkboxes with "Delete selected".
+- A11y & keyboard
+  - Table rows focusable; Enter opens Edit; Shift+Enter opens Apply.
+  - All buttons are <button> elements with labels; no click-only <div>s.
+  - Manager modal has role="dialog" and ESC to close; focus trapped within.
+- Empty states
+  - No templates: illustrated message, "New Template" primary CTA, and a secondary "Seed Defaults" (inserts War/PvE/Meeting examples).
+- Persistence & state
+  - Search/sort persisted in localStorage under `nw_templates_ui` (planned).
+  - After Save/Delete, list refreshes and preserves filters/sort.
+
+Integration with Events Page
+- Action bar
+  - Keep "Add New Event".
+  - "New from Template" split-button or select that lists templates by name (respects search state if the manager is open).
+  - "Manage Templates" opens the manager described above.
+- EventModal behavior
+  - Applying a template re-fills fields; if it contains a timing strategy, a local wall time is computed (server-tz computation planned). Manual edits are respected.
+- Calendar
+  - Optional later: right-click date cell → "New from Template" → list; selecting opens EventModal with that template applied.
+
+Error Handling & Messages
+- Name uniqueness: friendly error in `TemplateModal` if duplicate name.
+- Time compute: strategies compute local wall time; conversion to UTC on submit per EventModal mode.
+- Deletion guard: deleting a template doesn’t affect existing events.
+
+Testing Additions (Section 10)
+- Templates Manager (new tests)
+  - Create/Edit/Delete/Duplicate; unique-name validation; list updates and preserves filters.
+  - Apply from row opens EventModal with fields populated and time summary computed.
+  - Empty state seeding creates defaults; they appear in both manager and "New from Template".
+- EventModal with active template
+  - Shows applied template badge; re-apply updates fields; Clear removes linkage and stops recompute.
+- Calendar: add context menu "New from Template" on date cell (optional, later).
+- Remove "Quick War" button/action; point to Templates.
+
+Migrations
+- Add `event_templates` table and indexes; idempotent creation.
+- Seed default templates if none exist or when specifically requested via a "Seed Defaults" button in Templates panel.
+
+Edge Cases & Rules
+- Template names must be unique (show friendly error on duplicate).
+- Editing a template must not retroactively change existing events (templates are only used at creation time).
+- Deleting a template does not affect existing events.
+ 
+
+Testing Plan
+- CRUD: create, update, delete templates; validation of unique name, enum values.
+- Apply: selecting a template populates fields; switching templates updates fields; manual edits after apply persist for this event only.
+- Time mode: applying a template toggles the segmented control; submit stores UTC correctly for both modes.
+- Replacement: "Quick War" removed; seeded "War" template available; creating from this template yields expected defaults and correct time handling.
+- Persistence: templates persist across app restarts; events created from templates are indistinguishable from manually created ones.
+
+### 9.8 Events — Modal and UX updates
+
+Recent fixes
+- Form initialization: add an open-cycle guard keyed by `editingEvent?.id` or `__create__` to prevent reactive re-inits while the modal is open. Guard is cleared on close, cancel, delete, and after successful submit.
+- Focus handling: focus the name field on open to guarantee keyboard navigation works on subsequent opens.
+- Validation: require presence of fields; allow editing past events (no “must be future” constraint) to avoid blocking edits.
+- Submission path: rely solely on the form’s `on:submit|preventDefault` handler; remove button click handler to prevent double submits. Add a `submitting` reentrancy flag and disable the button while submitting to avoid duplicates.
+
+Implemented UX changes
+- Events list is now split into two sections: “Upcoming Events” and “Past Events”.
+  - Classification is automatic based on `event_time` versus the current time; updates in-place every 30s so items naturally move between sections.
+  - Past events render compact and slightly dimmed; retain Edit/Delete actions.
+- Event rows were compacted: smaller typography, tighter spacing, divider list, and condensed metadata row.
+
+Testing checklist (Events)
+- Verify Create and Edit flows can be used repeatedly without losing input focus or disabling inputs on the second open.
+- Confirm editing a past-dated event saves successfully.
+- Confirm no duplicate events are created on a single submit (button disabled while submitting, only one dispatch path).
+- Verify Upcoming/Past classification updates within ~30s without reload.
+- Confirm Past Events appear dimmed and use compact layout, with working Edit/Delete actions.
+
+### 9.9 Calendar — Filtering and layout polish
+
+Changes
+- Replaced chip-row character filter with a scalable control:
+  - Search box + All/None toggle stacked above a horizontally scrollable row of clickable character chips.
+  - Chips support keyboard interaction (Enter/Space) and show pointer cursor.
+  - The selector is width-limited (`md:max-w-md`) to reduce horizontal footprint.
+- Removed duplicate navigation controls; rely on FullCalendar toolbar only.
+- Moved legend below the calendar to prioritize the content area.
+- Stabilized modal open/close from Calendar by deferring state clear with `queueMicrotask` to avoid focus loss.
+
+Testing checklist (Calendar)
+- With many characters, verify search filters chips and chip selection updates the events rendered.
+- All/None toggle selects/deselects and persists via store while navigating.
+- Keyboard interaction on chips (Enter/Space) toggles selection; chips show pointer cursor.
+- Legend renders below the calendar; no duplicated navigation controls.
+- Opening/closing the Event modal from Calendar repeatedly preserves focus and input interactivity; edited events save.
+
+### 9.10 Dashboard — Information density & layout
+
+Changes
+- Removed the non-functional “Active Characters” section.
+- Two-column layout: Left column stacks “Upcoming Events” above “Tasks”; right column shows “Reset Timers”.
+- Tasks section:
+  - Added character selector to switch which character’s tasks are displayed.
+  - Shows all tasks (daily and weekly) for the selected character.
+  - Completion toggles update only the selected character.
+- Reduced footprint across all cards: smaller headings, tighter spacing, smaller controls.
+
+Testing checklist (Dashboard)
+- Upcoming Events appears above Tasks and mirrors the events page list content.
+- Character selector switches task lists quickly and completion toggles persist per character.
+- Reset Timers remain visible and responsive in the right column.
+
+### 9.11 Tasks — Weekly reset behavior
+
+Changes
+- Weekly period token generation switched to ISO week calculation to align with Tuesday 05:00 boundaries.
+- Tasks view listens to per-server reset timers; when the weekly countdown crosses 0, character task lists for that server auto-refresh.
+
+Testing checklist (Tasks)
+- Verify weekly reset tokens match server-local Tuesday 05:00 periods across timezones/DST.
+- When the weekly reset occurs, assigned weekly tasks for affected characters re-render as incomplete without manual refresh.
+
 ## 10. Comprehensive Testing Protocol
 
 ### 10.1 Pre-Test Setup
@@ -820,6 +1083,15 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Verify inactive servers are visually distinguished
 - [ ] Test bulk status changes on multiple servers
 
+**Test 7.1: Retrieve Latest Servers (Spinner and Append)**
+- [x] Click "Retrieve Server List"; spinner shows during fetch and hides on completion.
+- [x] New servers append without duplicates; counts update.
+- [x] Network error handled with in-app dialog.
+
+**Test 7.2: Clear Unused Servers**
+- [x] Run "Clear Unused"; servers without character/event references are removed.
+- [x] Referenced servers remain.
+
 ### 10.4 Character Management Testing
 
 **Test 8: Character Creation**
@@ -890,9 +1162,15 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Assign a task to a character via Tasks view assignment UI
 - [x] Verify it appears on Dashboard for that character
 - [x] Remove assignment; verify it disappears from that character’s list
- - [x] Create a new task; confirm typing works in text inputs and textareas
- - [x] Edit an existing task; confirm typing works in text inputs and textareas
- - [x] Confirm Delete in library row removes the task and updates character cards
+- - [x] Create a new task; confirm typing works in text inputs and textareas
+- - [x] Edit an existing task; confirm typing works in text inputs and textareas
+- - [x] Confirm Delete in library row removes the task and updates character cards
+
+**Test 14.2: Dashboard Tasks Card Persistence**
+- [x] Change view mode (By Character/By Type), type filter, selected character, and Show Completed.
+- [x] Navigate away and back; verify selections persist.
+- [x] Reload the app; verify persistence remains.
+- [x] If the previously selected character was removed, fallback to first available without error.
 
 ### 10.6 Event Management Testing
 
@@ -906,6 +1184,17 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Test description input
 - [x] Test RSVP status selection
 - [x] Create event and verify it appears in list
+
+**Test 15.1: Event Time Mode (Local vs Server)**
+- [x] Toggle Local vs Server segmented control; helper text updates accordingly.
+- [x] In Server mode, selecting a character updates helper to that character's server timezone; switching character updates timezone.
+- [x] Submit with Local mode and verify stored UTC corresponds to chosen local wall time.
+- [x] Submit with Server mode and verify stored UTC corresponds to chosen server wall time using the selected character's timezone.
+- [x] Re-open for edit: fields default to Local presentation; saving preserves correct UTC.
+
+**Test 15.2: Apply Template in EventModal**
+- [x] Choose a template; verify fields populate (name, type, location, participation, notifications, preferred time mode) with time left empty.
+- [x] Preferred time mode sets the segmented control; conversion on submit is correct for the chosen mode.
 
 **Test 16: Event Editing**
 - [x] Click edit button on existing event
@@ -952,6 +1241,11 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Verify event time updates
 - [x] Drag event to different time slot
 - [x] Verify time change persists
+
+**Test 20.1: New from Template via Calendar**
+- [x] From a date cell, select "New from Template" and pick a template.
+- [x] EventModal opens prefilled per template; user selects date/time and submits.
+- [x] Verify preferred time mode sets segmented control and stored UTC is correct.
 
 ### 10.8 Time & Reset Timer Testing
 
@@ -1005,6 +1299,7 @@ Daily/weekly resets must follow each character’s server timezone (05:00 daily;
 - [x] Each event displays name, type, optional server, and local date/time
 - [x] When creating/updating/deleting an event, header refreshes within a minute or on window focus
 - [x] When there are no upcoming events, header shows a friendly empty state
+ - [x] Only events within the next 20 hours appear in the header list
 
 **Test 29: Form Validation**
 - [x] Try creating character with empty name
@@ -1158,129 +1453,3 @@ For each test, document:
 ---
 
 *This comprehensive testing protocol ensures every individual interaction in the New World Planner application is thoroughly validated before production release.*
-
-\n
-### 9.6 Timezone & Reset Calculations — Updated Plan (Timezone-First)
-
-Problem statement
-- Current countdowns derive timezone from a hardcoded server-name→timezone map. Any DB server not in that map is treated as unknown, which yields blank/incorrect rows in diagnostics and UI.
-- The wall-clock→UTC conversion currently builds a local Date and attempts to infer timezone offset via `toLocaleString`, which produces wrong instants when the local machine timezone differs from the server timezone and is error-prone around DST.
-
-Design goals
-- Time math must be done relative to an authoritative IANA timezone from the database (e.g., `America/New_York`).
-- Countdown to resets must be DST-safe and consistent across OS timezones.
-- Eliminate reliance on server-name heuristics for time computations.
-
-Key decisions
-- Make timezone the source of truth everywhere (servers carry `servers.timezone`; characters carry `characters.server_timezone`).
-- Use `date-fns-tz` for robust conversions:
-  - `utcToZonedTime(nowUtc, tz)` → server-local wall time
-  - `zonedTimeToUtc(serverLocalDate, tz)` → correct UTC instant for 05:00 server time and for Tue 05:00 server time
-
-API and service changes
-- Add timezone-centric helpers in `src/services/timezone.js`:
-  - `getServerTimeDisplayByTimezone(tz)` → returns `{ time, date, timezone }` for the server-local now
-  - `getNextResetUTCByTimezone(tz, 'daily'|'weekly')` → returns the exact UTC instant for the next reset
-  - `getTimeUntilResetByTimezone(tz, type)` → returns `{ hours, minutes, seconds, totalMs, formatted }`
-- Refactor `src/services/resetTimerService.js` to accept server objects:
-  - `startResetTimerForServer({ name, timezone }, callback)`
-  - `getMultiServerResetInfo(servers)` where each item has `{ name, timezone }`
-  - Name-based wrappers remain for legacy but internally resolve to timezone once.
-- Extend `src/services/api.js`:
-  - `getResetTimers(serversOrNames)` accepts either servers with `name/timezone` or, if names are given, resolves them via DB and then computes.
-  - `startResetTimerForServer(server, callback)` for live updates in the dashboard.
-
-UI updates
-- Dashboard uses server objects (name+timezone) to compute initial timers and start live timers. No name→timezone lookup on the client anymore.
-- A temporary Settings preview was used to validate calculations and has been removed after verification.
-- Quick War schedules one hour from now.
-
-Custom Dialogs (NEW)
-- Replaced native `alert/confirm` with an in-app dialog component to avoid Electron focus issues.
-- All warnings/confirmations now use in-app dialogs.
-
-Modal Backdrop Interaction (NEW)
-- Backdrop close requires mousedown and click on the backdrop element, preventing accidental closes when drag-selecting text that ends outside the input.
-
-Correctness notes
-- Daily reset is computed as the next 05:00 in the server’s local day using `zonedTimeToUtc` (roll forward one day if already past).
-- Weekly reset is computed as the next Tuesday 05:00 in the server’s local calendar; if it’s already past that instant, add 7 days.
-- All countdowns subtract `nowUtc` from the computed UTC instant — no mixing of wall time and UTC, so results are stable regardless of the user’s OS timezone.
-
-Migration & compatibility
-- Keep the legacy name map for display/testing only. All countdown logic uses DB timezones.
-- Where inputs are still arrays of names, resolve them to `{ name, timezone }` via `servers` in the DB before computing.
-- Removed the temporary Settings debug section post-validation.
-
-Testing checklist
-- For a set of servers covering NA/EU/APAC with mixed DST status:
-  - Verify “server time” matches official local time for each server’s timezone.
-  - On different local OS timezones, verify countdown numbers are identical (UTC subtraction only).
-  - Around DST transitions, confirm daily and weekly next-reset UTC instants remain correct and advance monotonically.
-  - On Thursday (local), validate weekly ≈ daily + 96h for most servers; differences allowed where server-local date differs.
-  - Verify Tasks completion periods (daily/weekly) align with countdown reset boundaries for each character’s `server_timezone`.
-
-### 10.6 Events — Modal and UX updates
-
-Recent fixes
-- Form initialization: add an open-cycle guard keyed by `editingEvent?.id` or `__create__` to prevent reactive re-inits while the modal is open. Guard is cleared on close, cancel, delete, and after successful submit.
-- Focus handling: focus the name field on open to guarantee keyboard navigation works on subsequent opens.
-- Validation: require presence of fields; allow editing past events (no “must be future” constraint) to avoid blocking edits.
-- Submission path: rely solely on the form’s `on:submit|preventDefault` handler; remove button click handler to prevent double submits. Add a `submitting` reentrancy flag and disable the button while submitting to avoid duplicates.
-
-Implemented UX changes
-- Events list is now split into two sections: “Upcoming Events” and “Past Events”.
-  - Classification is automatic based on `event_time` versus the current time; updates in-place every 30s so items naturally move between sections.
-  - Past events render compact and slightly dimmed; retain Edit/Delete actions.
-- Event rows were compacted: smaller typography, tighter spacing, divider list, and condensed metadata row.
-
-Testing checklist (Events)
-- Verify Create and Edit flows can be used repeatedly without losing input focus or disabling inputs on the second open.
-- Confirm editing a past-dated event saves successfully.
-- Confirm no duplicate events are created on a single submit (button disabled while submitting, only one dispatch path).
-- Verify Upcoming/Past classification updates within ~30s without reload.
-- Confirm Past Events appear dimmed and use compact layout, with working Edit/Delete actions.
-
-### 10.7 Calendar — Filtering and layout polish
-
-Changes
-- Replaced chip-row character filter with a scalable control:
-  - Search box + All/None toggle stacked above a horizontally scrollable row of clickable character chips.
-  - Chips support keyboard interaction (Enter/Space) and show pointer cursor.
-  - The selector is width-limited (`md:max-w-md`) to reduce horizontal footprint.
-- Removed duplicate navigation controls; rely on FullCalendar toolbar only.
-- Moved legend below the calendar to prioritize the content area.
-- Stabilized modal open/close from Calendar by deferring state clear with `queueMicrotask` to avoid focus loss.
-
-### 10.8 Dashboard — Information density & layout
-
-Changes
-- Removed the non-functional “Active Characters” section.
-- Two-column layout: Left column stacks “Upcoming Events” above “Tasks”; right column shows “Reset Timers”.
-- Tasks section:
-  - Added character selector to switch which character’s tasks are displayed.
-  - Shows all tasks (daily and weekly) for the selected character.
-  - Completion toggles update only the selected character.
-- Reduced footprint across all cards: smaller headings, tighter spacing, smaller controls.
-
-Testing checklist (Dashboard)
-- Upcoming Events appears above Tasks and mirrors the events page list content.
-- Character selector switches task lists quickly and completion toggles persist per character.
-- Reset Timers remain visible and responsive in the right column.
-
-Testing checklist (Calendar)
-- With many characters, verify search filters chips and chip selection updates the events rendered.
-- All/None toggle selects/deselects and persists via store while navigating.
-- Keyboard interaction on chips (Enter/Space) toggles selection; chips show pointer cursor.
-- Legend renders below the calendar; no duplicated navigation controls.
-- Opening/closing the Event modal from Calendar repeatedly preserves focus and input interactivity; edited events save.
-
-### 10.5 Tasks — Weekly reset behavior
-
-Changes
-- Weekly period token generation switched to ISO week calculation to align with Tuesday 05:00 boundaries.
-- Tasks view listens to per-server reset timers; when the weekly countdown crosses 0, character task lists for that server auto-refresh.
-
-Testing checklist (Tasks)
-- Verify weekly reset tokens match server-local Tuesday 05:00 periods across timezones/DST.
-- When the weekly reset occurs, assigned weekly tasks for affected characters re-render as incomplete without manual refresh.
