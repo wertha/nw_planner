@@ -382,18 +382,38 @@ class TaskService {
             // Fallback to local
             return this.getLocalResetPeriod(taskType)
         }
-        const serverNow = this.getTimeInTimezone(serverTimezone)
+        // Compute period tokens using server timezone wall clock, not UTC
+        const now = new Date()
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: serverTimezone,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = fmt.formatToParts(now)
+        const pick = (t) => parts.find(p => p.type === t)?.value
+        const y = parseInt(pick('year'), 10)
+        const m = parseInt(pick('month'), 10)
+        const d = parseInt(pick('day'), 10)
+        const H = parseInt(pick('hour'), 10)
         if (taskType === 'weekly') {
+            // Retain existing weekly logic for now (less impacted), but base on server wall clock
+            const serverNow = this.getTimeInTimezone(serverTimezone)
             const weekStart = this.getTuesdayFiveAMOfWeek(serverNow)
             const effective = serverNow >= weekStart ? serverNow : this.addDays(weekStart, -7)
             const year = effective.getFullYear()
             const weekNumber = this.getWeekNumber(effective)
             return `${year}-W${weekNumber.toString().padStart(2, '0')}`
         }
-        // daily
-        const dailyBoundary = this.setTime(serverNow, 5, 0, 0, 0)
-        const effective = serverNow >= dailyBoundary ? serverNow : this.addDays(serverNow, -1)
-        return effective.toISOString().split('T')[0]
+        // Daily token: if before 05:00 server-local, use previous local day
+        if (H >= 5) {
+            return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+        }
+        const prev = new Date(now.getTime() - 24 * 3600 * 1000)
+        const prevParts = fmt.formatToParts(prev)
+        const py = parseInt(prevParts.find(p => p.type==='year').value, 10)
+        const pm = parseInt(prevParts.find(p => p.type==='month').value, 10)
+        const pd = parseInt(prevParts.find(p => p.type==='day').value, 10)
+        return `${py}-${String(pm).padStart(2,'0')}-${String(pd).padStart(2,'0')}`
     }
 
     getLocalResetPeriod(taskType) {
@@ -405,9 +425,25 @@ class TaskService {
             const weekNumber = this.getWeekNumber(effective)
             return `${year}-W${weekNumber.toString().padStart(2, '0')}`
         }
-        const boundary = this.setTime(now, 5, 0, 0, 0)
-        const effective = now >= boundary ? now : this.addDays(now, -1)
-        return effective.toISOString().split('T')[0]
+        // Daily: use OS local wall clock parts, 05:00 boundary
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        })
+        const parts = fmt.formatToParts(now)
+        const pick = (t) => parts.find(p => p.type === t)?.value
+        let y = parseInt(pick('year'), 10)
+        let m = parseInt(pick('month'), 10)
+        let d = parseInt(pick('day'), 10)
+        const H = parseInt(pick('hour'), 10)
+        if (H < 5) {
+            const prev = new Date(now.getTime() - 24 * 3600 * 1000)
+            const prevParts = fmt.formatToParts(prev)
+            y = parseInt(prevParts.find(p => p.type==='year').value, 10)
+            m = parseInt(prevParts.find(p => p.type==='month').value, 10)
+            d = parseInt(prevParts.find(p => p.type==='day').value, 10)
+        }
+        return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
     }
 
     getTimeInTimezone(timezone, baseDate = new Date()) {
