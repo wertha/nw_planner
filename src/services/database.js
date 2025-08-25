@@ -135,7 +135,7 @@ class DatabaseService {
             )
         `)
 
-        // Event templates table
+        // Event templates table (lean schema)
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS event_templates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,12 +146,9 @@ class DatabaseService {
                 participation_status TEXT CHECK(participation_status IN ('Signed Up','Confirmed','Absent','Tentative')) DEFAULT 'Signed Up',
                 notification_enabled BOOLEAN DEFAULT 1,
                 notification_minutes INTEGER DEFAULT 30,
-                preferred_time_mode TEXT CHECK(preferred_time_mode IN ('local','server')) DEFAULT 'local',
-                timezone_source TEXT CHECK(timezone_source IN ('templateServer','selectedCharacter','local')) DEFAULT NULL,
-                template_server_name TEXT,
-                template_server_timezone TEXT,
-                time_strategy TEXT CHECK(time_strategy IN ('relativeOffset','nextDayAtTime','nextWeekdayAtTime','fixedDateTime')) DEFAULT NULL,
+                time_strategy TEXT CHECK(time_strategy IN ('relative','fixed')) DEFAULT NULL,
                 time_params TEXT,
+                payload_json TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -181,9 +178,137 @@ class DatabaseService {
 
         // Apply lightweight migrations
         this.migrateTasksTableForOneTime()
+        this.migrateEventTemplatesAddPayload()
+        this.migrateEventTemplatesPruneLegacy()
 
         // Note: Default tasks are no longer automatically inserted to keep the app clean
         // Users can manually add tasks or import data if needed
+    }
+
+    migrateEventTemplatesAddPayload() {
+        try {
+            const cols = this.db.prepare("PRAGMA table_info('event_templates')").all()
+            const hasPayload = cols.some(c => c.name === 'payload_json')
+            if (!hasPayload) {
+                this.db.exec("ALTER TABLE event_templates ADD COLUMN payload_json TEXT")
+            }
+        } catch (e) {
+            console.warn('Event templates payload migration skipped:', e)
+        }
+    }
+
+    migrateEventTemplatesPruneLegacy() {
+        try {
+            const cols = this.db.prepare("PRAGMA table_info('event_templates')").all()
+            const hasPreferred = cols.some(c => c.name === 'preferred_time_mode')
+            const hasTimezoneSource = cols.some(c => c.name === 'timezone_source')
+            const hasTemplateServer = cols.some(c => c.name === 'template_server_name' || c.name === 'template_server_timezone')
+            const hasLegacyStrategies = (() => {
+                const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='event_templates'").get()
+                const createSql = row?.sql || ''
+                return createSql.includes('relativeOffset') || createSql.includes('nextDayAtTime') || createSql.includes('nextWeekdayAtTime') || createSql.includes('fixedDateTime')
+            })()
+            if (!hasPreferred && !hasTimezoneSource && !hasTemplateServer && !hasLegacyStrategies) return
+
+            const all = this.db.prepare('SELECT * FROM event_templates').all()
+
+            this.db.exec('PRAGMA foreign_keys=OFF;')
+            this.db.exec(`
+                BEGIN TRANSACTION;
+                CREATE TABLE event_templates_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    event_type TEXT,
+                    description TEXT,
+                    location TEXT,
+                    participation_status TEXT CHECK(participation_status IN ('Signed Up','Confirmed','Absent','Tentative')) DEFAULT 'Signed Up',
+                    notification_enabled BOOLEAN DEFAULT 1,
+                    notification_minutes INTEGER DEFAULT 30,
+                    time_strategy TEXT CHECK(time_strategy IN ('relative','fixed')) DEFAULT NULL,
+                    time_params TEXT,
+                    payload_json TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `)
+
+            const insert = this.db.prepare(`
+                INSERT INTO event_templates_new (
+                    id, name, event_type, description, location, participation_status, notification_enabled, notification_minutes,
+                    time_strategy, time_params, payload_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `)
+
+            for (const row of all) {
+                let time_strategy = row.time_strategy || null
+                let time_params = row.time_params
+                try { if (time_params && typeof time_params !== 'string') time_params = JSON.stringify(time_params) } catch {}
+                let payload_json = row.payload_json
+                try { if (payload_json && typeof payload_json !== 'string') payload_json = JSON.stringify(payload_json) } catch {}
+
+                // Normalize legacy strategies → new model
+                if (time_strategy === 'relativeOffset') {
+                    // derive unit from offsetMinutes when possible
+                    let unit = 'hour'
+                    try {
+                        const p = time_params ? JSON.parse(time_params) : {}
+                        const mins = parseInt(p.offsetMinutes || 60)
+                        if (mins % (7*24*60) === 0) unit = 'week'
+                        else if (mins % (24*60) === 0) unit = 'day'
+                        else unit = 'hour'
+                        time_params = JSON.stringify({ unit })
+                    } catch { time_params = JSON.stringify({ unit: 'hour' }) }
+                    time_strategy = 'relative'
+                } else if (time_strategy === 'nextDayAtTime') {
+                    try {
+                        const p = time_params ? JSON.parse(time_params) : {}
+                        const timeOfDay = p.timeOfDay || '20:00'
+                        time_params = JSON.stringify({ when: 'tomorrow', timeOfDay })
+                    } catch { time_params = JSON.stringify({ when: 'tomorrow', timeOfDay: '20:00' }) }
+                    time_strategy = 'fixed'
+                } else if (time_strategy === 'nextWeekdayAtTime') {
+                    try {
+                        const p = time_params ? JSON.parse(time_params) : {}
+                        const weekday = typeof p.weekday === 'number' ? p.weekday : parseInt(p.weekday || 1)
+                        const timeOfDay = p.timeOfDay || '20:00'
+                        time_params = JSON.stringify({ when: 'weekday', weekday, timeOfDay })
+                    } catch { time_params = JSON.stringify({ when: 'weekday', weekday: 1, timeOfDay: '20:00' }) }
+                    time_strategy = 'fixed'
+                } else if (time_strategy === 'fixedDateTime') {
+                    // Move absolute datetime into payload_json.event_time and drop strategy
+                    try {
+                        const p = time_params ? JSON.parse(time_params) : {}
+                        const iso = p.isoDateTime
+                        const payload = payload_json ? JSON.parse(payload_json) : {}
+                        if (iso) {
+                            payload.event_time = iso
+                            payload_json = JSON.stringify(payload)
+                        }
+                    } catch {}
+                    time_strategy = null
+                    time_params = null
+                } else if (time_strategy && !['relative','fixed'].includes(time_strategy)) {
+                    // Unknown legacy: drop strategy
+                    time_strategy = null
+                }
+
+                insert.run(
+                    row.id, row.name, row.event_type, row.description, row.location,
+                    row.participation_status, row.notification_enabled, row.notification_minutes,
+                    time_strategy, time_params, payload_json, row.created_at, row.updated_at
+                )
+            }
+
+            this.db.exec(`
+                DROP TABLE event_templates;
+                ALTER TABLE event_templates_new RENAME TO event_templates;
+                COMMIT;
+            `)
+            this.db.exec('PRAGMA foreign_keys=ON;')
+        } catch (e) {
+            try { this.db.exec('PRAGMA foreign_keys=ON;') } catch (_) {}
+            console.warn('Event templates prune legacy migration skipped:', e)
+        }
     }
 
     insertDefaultEventTemplates() {
@@ -194,12 +319,8 @@ class DatabaseService {
                 participation_status: 'Signed Up',
                 notification_enabled: 1,
                 notification_minutes: 60,
-                preferred_time_mode: 'server',
-                timezone_source: 'selectedCharacter',
-                template_server_name: null,
-                template_server_timezone: null,
-                time_strategy: 'relativeOffset',
-                time_params: JSON.stringify({ offsetMinutes: 60 })
+                time_strategy: 'relative',
+                time_params: JSON.stringify({ unit: 'hour' })
             }
         ]
 
@@ -208,9 +329,8 @@ class DatabaseService {
             INSERT INTO event_templates (
                 name, event_type, description, location,
                 participation_status, notification_enabled, notification_minutes,
-                preferred_time_mode, timezone_source, template_server_name, template_server_timezone,
                 time_strategy, time_params
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
         defaults.forEach(t => {
@@ -219,7 +339,6 @@ class DatabaseService {
                 insertStmt.run(
                     t.name, t.event_type || null, t.description || null, t.location || null,
                     t.participation_status || 'Signed Up', t.notification_enabled ? 1 : 0, typeof t.notification_minutes === 'number' ? t.notification_minutes : 30,
-                    t.preferred_time_mode || 'local', t.timezone_source || null, t.template_server_name || null, t.template_server_timezone || null,
                     t.time_strategy || null, t.time_params || null
                 )
             }

@@ -1,28 +1,43 @@
 <script>
   import { onMount } from 'svelte'
   import TemplateModal from './TemplateModal.svelte'
+  import { createEventDispatcher } from 'svelte'
   import api from '../services/api.js'
 
   export let isOpen = false
+  const dispatch = createEventDispatcher()
 
   let loading = true
   let templates = []
+  let characters = []
+  let servers = []
   let search = ''
   let sort = 'name'
   let showTemplateModal = false
   let editingTemplate = null
+  let backMd = false
 
   onMount(load)
   async function load(){
     loading = true
-    try { templates = await api.getEventTemplates() } catch { templates = [] }
+    try {
+      const [tpls, chars, srvs] = await Promise.all([
+        api.getEventTemplates(),
+        api.getActiveCharacters(),
+        api.getActiveServers?.() || api.getServers?.()
+      ])
+      templates = tpls
+      characters = chars
+      servers = srvs || []
+    } catch {
+      templates = []
+      characters = []
+      servers = []
+    }
     loading = false
   }
 
-  function applyTemplate(t){
-    const ev = new CustomEvent('apply', { detail: t })
-    dispatchEvent(ev)
-  }
+  function applyTemplate(t){ dispatch('apply', t) }
 
   function openCreate(){ editingTemplate = null; showTemplateModal = true }
   function openEdit(t){ editingTemplate = t; showTemplateModal = true }
@@ -45,8 +60,8 @@
 </script>
 
 {#if isOpen}
-  <div class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl" role="document" on:click|stopPropagation>
+  <div class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" role="dialog" aria-modal="true" on:keydown={(e)=> e.key==='Escape' && dispatch('close')} tabindex="-1" on:mousedown={(e)=> backMd = e.target===e.currentTarget} on:click={(e)=>{ if (e.target===e.currentTarget && backMd) dispatch('close') }}>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto" role="document" on:click|stopPropagation>
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Templates</h2>
@@ -58,7 +73,7 @@
         </div>
         <div class="flex items-center gap-2">
           <button class="btn-secondary" on:click={openCreate}>New Template</button>
-          <button class="text-gray-500 hover:text-gray-700 dark:text-gray-300" on:click={()=> dispatchEvent(new CustomEvent('close'))}>✕</button>
+          <button class="text-gray-500 hover:text-gray-700 dark:text-gray-300" on:click={()=> dispatch('close')} aria-label="Close">✕</button>
         </div>
       </div>
       <div class="p-6">
@@ -76,9 +91,7 @@
                 <tr>
                   <th class="py-2 pr-4">Name</th>
                   <th class="py-2 pr-4">Type</th>
-                  <th class="py-2 pr-4">Pref Mode</th>
                   <th class="py-2 pr-4">Strategy</th>
-                  <th class="py-2 pr-4">TZ Source</th>
                   <th class="py-2 pr-4">Updated</th>
                   <th class="py-2 pr-4">Actions</th>
                 </tr>
@@ -88,9 +101,7 @@
                   <tr class="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
                     <td class="py-2 pr-4 font-medium">{t.name}</td>
                     <td class="py-2 pr-4">{t.event_type || '-'}</td>
-                    <td class="py-2 pr-4">{t.preferred_time_mode || '-'}</td>
                     <td class="py-2 pr-4">{t.time_strategy || '-'}</td>
-                    <td class="py-2 pr-4">{t.timezone_source || '-'}</td>
                     <td class="py-2 pr-4">{t.updated_at ? new Date(t.updated_at).toLocaleString() : '-'}</td>
                     <td class="py-2 pr-4">
                       <div class="flex items-center gap-2">
@@ -108,7 +119,7 @@
         {/if}
       </div>
 
-      <TemplateModal isOpen={showTemplateModal} template={editingTemplate} on:cancel={()=>{ showTemplateModal=false; editingTemplate=null }} on:save={async (e)=>{ try { if (editingTemplate) await api.updateEventTemplate(editingTemplate.id, e.detail); else await api.createEventTemplate(e.detail); showTemplateModal=false; editingTemplate=null; await load() } catch (err) { console.error('Template save failed', err) } }} />
+      <TemplateModal isOpen={showTemplateModal} template={editingTemplate} characters={characters} servers={servers} on:cancel={()=>{ showTemplateModal=false; editingTemplate=null }} on:save={async (e)=>{ try { const payload = { ...e.detail, payload_json: e.detail }; if (editingTemplate) await api.updateEventTemplate(editingTemplate.id, payload); else await api.createEventTemplate(payload); showTemplateModal=false; editingTemplate=null; await load() } catch (err) { console.error('Template save failed', err) } }} />
     </div>
   </div>
 {/if}

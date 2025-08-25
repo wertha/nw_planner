@@ -815,8 +815,8 @@ Scope and UX
   - From Events list or Calendar: buttons "Create Event" and a split-button/menu "New from Template".
   - From Dashboard upcoming events card: optional quick entry to "New from Template".
 - EventModal:
-  - New "Apply Template" select at the top. Choosing a template sets relevant fields immediately (name, description, type, participation, location, notification settings, preferred time mode). Event time remains empty; the user selects it.
-  - New segmented control already exists for Local/Server time; templates can carry a preferred default for this control.
+  - "Apply Template" select at the top. Choosing a template sets relevant fields immediately (name, description, type, participation, location, notification settings). If the template defines a timing strategy, a local event time is computed.
+  - The Local/Server segmented control is owned by EventModal; templates do not carry a preferred mode.
 - Replace Quick War:
   - Remove single-purpose "Quick War". Seed a default "War" template with sensible defaults. Users can duplicate/modify to suit their company.
 
@@ -830,12 +830,9 @@ Data Model
   - `participation_status TEXT CHECK(participation_status IN ('Signed Up','Confirmed','Absent','Tentative')) DEFAULT 'Signed Up'`
   - `notification_enabled BOOLEAN DEFAULT 1`
   - `notification_minutes INTEGER DEFAULT 30`
-  - `preferred_time_mode TEXT CHECK(preferred_time_mode IN ('local','server')) DEFAULT 'local'`
-  - `timezone_source TEXT CHECK(timezone_source IN ('templateServer','selectedCharacter','local')) DEFAULT NULL`
-  - `template_server_name TEXT`
-  - `template_server_timezone TEXT`
-  - `time_strategy TEXT CHECK(time_strategy IN ('relativeOffset','nextDayAtTime','nextWeekdayAtTime','fixedDateTime')) DEFAULT NULL`
-  - `time_params TEXT` -- JSON blob; e.g., {"offsetMinutes":60} or {"timeOfDay":"20:00"} or {"weekday":2,"timeOfDay":"20:00"} or {"isoDateTime":"2025-03-01T20:00"}
+  - `time_strategy TEXT CHECK(time_strategy IN ('relative','fixed')) DEFAULT NULL`
+  - `time_params TEXT` -- JSON blob; relative: `{ unit: 'hour'|'day'|'week' }`; fixed: `{ when: 'today'|'tomorrow'|'weekday', weekday?:0-6, timeOfDay:'HH:mm' }`
+  - `payload_json TEXT`
   - `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
   - `updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
 - No server/character linkage at the template level; those are decided when instantiating the event.
@@ -855,7 +852,7 @@ Renderer → IPC → Service Contracts
 Event Creation Flow with Templates
 - When a template is chosen in `EventModal`:
   - Set `formData` fields: `name`, `description`, `event_type`, `location`, `participation_status`, `notification_enabled`, `notification_minutes`.
-  - Set `timeMode` from `preferred_time_mode`.
+  - Templates no longer set a preferred time mode.
   - If `time_strategy` is present and the timezone source is resolvable (template server tz or selected character’s tz or local), compute `event_time` per strategy; otherwise leave empty and show helper.
   - Strategies:
     - `relativeOffset`: now + `offsetMinutes` (timezone-independent instant)
@@ -880,9 +877,7 @@ Dedicated Templates Manager UI (CRUD)
   - List: compact table with columns
     - Name
     - Type
-    - Preferred Time Mode
-    - Strategy summary (e.g., "+60m", "Tomorrow 20:00", "Tue 20:00", "2025-03-01 20:00")
-    - TZ source (Template Server | Selected Character | Local)
+    - Strategy
     - Updated
     - Actions (Apply → opens Event create with this template; Edit; Duplicate; Delete)
   - Footer: pagination when >50 templates (simple next/prev) or virtualized scroll.
@@ -900,7 +895,7 @@ Dedicated Templates Manager UI (CRUD)
 - Empty states
   - No templates: illustrated message, "New Template" primary CTA, and a secondary "Seed Defaults" (inserts War/PvE/Meeting examples).
 - Persistence & state
-  - Search/sort persisted in localStorage under `nw_templates_ui`.
+  - Search/sort persisted in localStorage under `nw_templates_ui` (planned).
   - After Save/Delete, list refreshes and preserves filters/sort.
 
 Integration with Events Page
@@ -909,14 +904,13 @@ Integration with Events Page
   - "New from Template" split-button or select that lists templates by name (respects search state if the manager is open).
   - "Manage Templates" opens the manager described above.
 - EventModal behavior
-  - New above-the-form banner when a template is active: "Template: War (server, +60m)" with a small "Change" or "Clear" action.
-  - Applying a different template from the inline dropdown re-fills fields and recomputes time; manual edits after apply are respected and stop auto-recompute until template is re-applied.
+  - Applying a template re-fills fields; if it contains a timing strategy, a local wall time is computed (server-tz computation planned). Manual edits are respected.
 - Calendar
   - Optional later: right-click date cell → "New from Template" → list; selecting opens EventModal with that template applied.
 
 Error Handling & Messages
 - Name uniqueness: friendly error in `TemplateModal` if duplicate name.
-- Time compute unavailable: if strategy requires a tz source and none is resolvable yet, show a non-blocking helper ("Select a character or server to compute time") and allow user to proceed; event submission validates time as usual.
+- Time compute: strategies compute local wall time; conversion to UTC on submit per EventModal mode.
 - Deletion guard: deleting a template doesn’t affect existing events.
 
 Testing Additions (Section 10)
@@ -937,7 +931,7 @@ Edge Cases & Rules
 - Template names must be unique (show friendly error on duplicate).
 - Editing a template must not retroactively change existing events (templates are only used at creation time).
 - Deleting a template does not affect existing events.
-- If a template’s `preferred_time_mode` is 'server' but no character is selected yet, default to 'server' mode but show the helper text indicating timezone will come from character; conversion still occurs at submit time.
+ 
 
 Testing Plan
 - CRUD: create, update, delete templates; validation of unique name, enum values.

@@ -35,6 +35,7 @@
   let timeMode = 'local' // 'local' | 'server'
   let templates = []
   let selectedTemplateId = ''
+  export let initialTemplateId = null
   
   // Event types
   const eventTypes = [
@@ -124,81 +125,90 @@
     (async () => { try { templates = await api.getEventTemplates() } catch (_) { templates = [] } })()
   }
 
+  // Auto-apply initial template if provided on first show
+  let appliedInitial = false
+  $: if (show && initialTemplateId && !appliedInitial && templates.length > 0) {
+    const exists = templates.find(t => t.id == initialTemplateId)
+    if (exists) {
+      applyTemplate(initialTemplateId)
+      appliedInitial = true
+    }
+  }
+
+  // Reset template auto-apply flag when modal closes
+  $: if (!show) {
+    appliedInitial = false
+    selectedTemplateId = ''
+  }
+
   function applyTemplate(templateId) {
     const tpl = templates.find(t => t.id == templateId)
     if (!tpl) return
     selectedTemplateId = templateId
-    // Copy scalar fields
-    formData.name = tpl.name || formData.name
-    formData.description = tpl.description || ''
-    formData.event_type = tpl.event_type || formData.event_type
-    formData.location = tpl.location || ''
-    formData.participation_status = tpl.participation_status || 'Signed Up'
-    formData.notification_enabled = tpl.notification_enabled !== 0
-    formData.notification_minutes = typeof tpl.notification_minutes === 'number' ? tpl.notification_minutes : 30
-    if (tpl.preferred_time_mode) timeMode = tpl.preferred_time_mode
-    // Time strategy: compute if possible, else leave empty
-    try {
-      const computed = computeTemplateEventTime(tpl)
-      formData.event_time = computed || ''
-    } catch (_) {
-      formData.event_time = ''
+    // Prefer payload_json if present to mirror EventModal fields exactly
+    const payload = typeof tpl.payload_json === 'string' ? JSON.parse(tpl.payload_json) : (tpl.payload_json || {})
+    const source = Object.keys(payload).length > 0 ? payload : tpl
+    formData = {
+      ...formData,
+      name: source.name ?? formData.name,
+      description: source.description ?? formData.description,
+      event_type: source.event_type ?? formData.event_type,
+      server_name: source.server_name ?? formData.server_name,
+      event_time: source.event_time ?? formData.event_time,
+      character_id: source.character_id ?? formData.character_id,
+      participation_status: source.participation_status ?? formData.participation_status,
+      location: source.location ?? formData.location,
+      notification_enabled: source.notification_enabled !== undefined ? !!source.notification_enabled : formData.notification_enabled,
+      notification_minutes: typeof source.notification_minutes === 'number' ? source.notification_minutes : formData.notification_minutes,
+      timezone: formData.timezone
+    }
+
+    // Compute event_time from timing strategy if provided in payload
+    if (source.time_strategy) {
+      const computedLocal = computeFromTimingStrategy(source.time_strategy, source.time_params || {})
+      if (computedLocal) {
+        formData.event_time = computedLocal
+      }
     }
   }
 
-  function resolveTimezoneFromTemplate(tpl) {
-    const source = tpl.timezone_source
-    if (source === 'local' || !source) return Intl.DateTimeFormat().resolvedOptions().timeZone
-    if (source === 'templateServer') return tpl.template_server_timezone || formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-    // selectedCharacter
-    const character = characters.find(c => c.id === parseInt(formData.character_id))
-    return character?.server_timezone || formData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-  }
-
-  function computeTemplateEventTime(tpl) {
-    if (!tpl || !tpl.time_strategy) return ''
-    const tz = resolveTimezoneFromTemplate(tpl)
+  function computeFromTimingStrategy(strategy, params) {
     const now = new Date()
-    const strategy = tpl.time_strategy
-    const params = typeof tpl.time_params === 'string' ? JSON.parse(tpl.time_params) : (tpl.time_params || {})
-    if (strategy === 'relativeOffset') {
-      const minutes = parseInt(params.offsetMinutes || 0)
-      const future = new Date(now.getTime() + minutes * 60000)
-      return (timeMode === 'server') ? zonedTimeToUtc(future, tz).toISOString() : future.toISOString()
+    function toLocalInputString(d) {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      return `${y}-${m}-${day}T${hh}:${mm}`
     }
-    function buildZoned(dateParts) {
-      const { year, month, day, hour, minute } = dateParts
-      const iso = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00`
-      return zonedTimeToUtc(iso, tz).toISOString()
+    if (strategy === 'relative') {
+      const unit = params.unit || 'hour'
+      const copy = new Date(now)
+      if (unit === 'hour') copy.setHours(copy.getHours() + 1)
+      else if (unit === 'day') copy.setDate(copy.getDate() + 1)
+      else if (unit === 'week') copy.setDate(copy.getDate() + 7)
+      return toLocalInputString(copy)
     }
-    const serverNow = new Date()
-    if (strategy === 'nextDayAtTime') {
-      const [hh, mm] = String(params.timeOfDay || '20:00').split(':').map(x=>parseInt(x))
-      const d = new Date(serverNow)
-      d.setDate(d.getDate() + 1)
-      return buildZoned({ year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate(), hour: hh, minute: mm })
-    }
-    if (strategy === 'nextWeekdayAtTime') {
-      const weekday = parseInt(params.weekday || 2) // 0-6
-      const [hh, mm] = String(params.timeOfDay || '20:00').split(':').map(x=>parseInt(x))
-      const d = new Date(serverNow)
-      const delta = (weekday - d.getDay() + 7) % 7 || 7
-      d.setDate(d.getDate() + delta)
-      return buildZoned({ year: d.getFullYear(), month: d.getMonth()+1, day: d.getDate(), hour: hh, minute: mm })
-    }
-    if (strategy === 'fixedDateTime') {
-      const isoLocal = params.isoDateTime // e.g., 2025-03-01T20:00
-      if (!isoLocal) return ''
-      return buildZoned({
-        year: parseInt(isoLocal.slice(0,4)),
-        month: parseInt(isoLocal.slice(5,7)),
-        day: parseInt(isoLocal.slice(8,10)),
-        hour: parseInt(isoLocal.slice(11,13)),
-        minute: parseInt(isoLocal.slice(14,16))
-      })
+    if (strategy === 'fixed') {
+      const when = params.when || 'today'
+      const timeOfDay = params.timeOfDay || '20:00'
+      const [hh, mm] = timeOfDay.split(':').map(x => parseInt(x))
+      const copy = new Date(now)
+      if (when === 'tomorrow') {
+        copy.setDate(copy.getDate() + 1)
+      } else if (when === 'weekday') {
+        const target = parseInt(params.weekday || 0)
+        const delta = ((target - copy.getDay() + 7) % 7) || 7
+        copy.setDate(copy.getDate() + delta)
+      }
+      copy.setHours(hh || 0, mm || 0, 0, 0)
+      return toLocalInputString(copy)
     }
     return ''
   }
+
+  // Legacy template time helpers removed; templates now compute via computeFromTimingStrategy only
   
   function formatDateTimeLocal(dateString) {
     if (!dateString) return ''

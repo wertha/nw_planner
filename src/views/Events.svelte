@@ -14,6 +14,7 @@
   let showModal = false
   let editingEvent = null
   let showTemplateManager = false
+  let pendingTemplateId = null
   let now = new Date()
   let nowTimer = null
   
@@ -68,8 +69,10 @@
     }
   }
 
-  function openCreate() {
+  let initialTemplateId = null
+  function openCreate(tplId = null) {
     editingEvent = null
+    initialTemplateId = tplId
     showModal = true
   }
   function openEdit(ev) {
@@ -86,6 +89,7 @@
       }
       showModal = false
       editingEvent = null
+      pendingTemplateId = null
       await loadData()
     } catch (err) {
       console.error('Error saving event:', err)
@@ -157,7 +161,7 @@
       <div class="flex space-x-2">
         <button class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={openCreate}>Add New Event</button>
         <div class="relative">
-          <select class="btn-secondary text-sm px-3 py-2" on:change={async (e)=>{ const tplId = e.target.value; if (!tplId) return; openCreate(); /* user picks template in modal */ e.target.value=''; }}>
+          <select class="btn-secondary text-sm px-3 py-2" on:change={(e)=>{ const tplId = e.target.value; if (!tplId) return; pendingTemplateId = tplId; openCreate(); e.target.value=''; }}>
             <option value="">New from Template…</option>
             {#each templates as t}
               <option value={t.id}>{t.name}</option>
@@ -308,6 +312,6 @@
       {/if}
     </div>
   {/if}
-  <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
-  <TemplateManager isOpen={showTemplateManager} on:close={()=>{ showTemplateManager=false; loadData() }} on:apply={(e)=>{ showTemplateManager=false; openCreate(); /* user picks in EventModal */ }} />
+  <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} initialTemplateId={pendingTemplateId} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null; pendingTemplateId = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; pendingTemplateId = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
+  <TemplateManager isOpen={showTemplateManager} on:close={()=>{ showTemplateManager=false; loadData() }} on:apply={(e)=>{ showTemplateManager=false; pendingTemplateId = e.detail.id; editingEvent=null; showModal=true }} />
 </div> 

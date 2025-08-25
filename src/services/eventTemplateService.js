@@ -19,24 +19,30 @@ class EventTemplateService {
       insert: await this.db.prepare(`
         INSERT INTO event_templates (
           name, event_type, description, location, participation_status,
-          notification_enabled, notification_minutes, preferred_time_mode,
-          timezone_source, template_server_name, template_server_timezone,
-          time_strategy, time_params
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          notification_enabled, notification_minutes,
+          time_strategy, time_params, payload_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       update: await this.db.prepare(`
         UPDATE event_templates SET
           name = ?, event_type = ?, description = ?, location = ?, participation_status = ?,
-          notification_enabled = ?, notification_minutes = ?, preferred_time_mode = ?,
-          timezone_source = ?, template_server_name = ?, template_server_timezone = ?,
-          time_strategy = ?, time_params = ?, updated_at = CURRENT_TIMESTAMP
+          notification_enabled = ?, notification_minutes = ?,
+          time_strategy = ?, time_params = ?, payload_json = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `),
       delete: await this.db.prepare('DELETE FROM event_templates WHERE id = ?')
     }
 
-    // Seed defaults
-    this.db.insertDefaultEventTemplates()
+    // Seed defaults only if table is empty
+    try {
+      const countStmt = await this.db.prepare('SELECT COUNT(*) as c FROM event_templates')
+      const row = countStmt.get()
+      if ((row?.c || 0) === 0) {
+        this.db.insertDefaultEventTemplates()
+      }
+    } catch (e) {
+      // ignore seed errors; not critical
+    }
 
     this.initialized = true
   }
@@ -62,19 +68,15 @@ class EventTemplateService {
       participation_status: template.participation_status || 'Signed Up',
       notification_enabled: template.notification_enabled ? 1 : 0,
       notification_minutes: typeof template.notification_minutes === 'number' ? template.notification_minutes : 30,
-      preferred_time_mode: template.preferred_time_mode || 'local',
-      timezone_source: template.timezone_source || null,
-      template_server_name: template.template_server_name || null,
-      template_server_timezone: template.template_server_timezone || null,
       time_strategy: template.time_strategy || null,
-      time_params: template.time_params ? (typeof template.time_params === 'string' ? template.time_params : JSON.stringify(template.time_params)) : null
+      time_params: template.time_params ? (typeof template.time_params === 'string' ? template.time_params : JSON.stringify(template.time_params)) : null,
+      payload_json: template.payload_json ? (typeof template.payload_json === 'string' ? template.payload_json : JSON.stringify(template.payload_json)) : null
     }
 
     const res = this.statements.insert.run(
       t.name, t.event_type, t.description, t.location, t.participation_status,
-      t.notification_enabled, t.notification_minutes, t.preferred_time_mode,
-      t.timezone_source, t.template_server_name, t.template_server_timezone,
-      t.time_strategy, t.time_params
+      t.notification_enabled, t.notification_minutes,
+      t.time_strategy, t.time_params, t.payload_json
     )
     if (res.changes > 0) return this.getById(res.lastInsertRowid)
     return null
@@ -89,13 +91,13 @@ class EventTemplateService {
       ...partial,
       notification_enabled: partial.notification_enabled !== undefined ? (partial.notification_enabled ? 1 : 0) : existing.notification_enabled,
       notification_minutes: partial.notification_minutes !== undefined ? partial.notification_minutes : existing.notification_minutes,
-      time_params: partial.time_params !== undefined ? (typeof partial.time_params === 'string' ? partial.time_params : JSON.stringify(partial.time_params)) : existing.time_params
+      time_params: partial.time_params !== undefined ? (typeof partial.time_params === 'string' ? partial.time_params : JSON.stringify(partial.time_params)) : existing.time_params,
+      payload_json: partial.payload_json !== undefined ? (typeof partial.payload_json === 'string' ? partial.payload_json : JSON.stringify(partial.payload_json)) : existing.payload_json
     }
     const res = this.statements.update.run(
       merged.name, merged.event_type, merged.description, merged.location, merged.participation_status,
-      merged.notification_enabled, merged.notification_minutes, merged.preferred_time_mode,
-      merged.timezone_source, merged.template_server_name, merged.template_server_timezone,
-      merged.time_strategy, merged.time_params, id
+      merged.notification_enabled, merged.notification_minutes,
+      merged.time_strategy, merged.time_params, merged.payload_json, id
     )
     if (res.changes > 0) return this.getById(id)
     return null
