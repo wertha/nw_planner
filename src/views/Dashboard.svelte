@@ -306,6 +306,14 @@
       .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority) || a.name.localeCompare(b.name))
     return { character: c, tasks }
   }).filter(group => group.tasks.length > 0)
+
+  // For byType empty state: detect if any tasks of the selected type exist at all (ignoring completion filter)
+  $: anyTasksOfSelectedType = (characters || []).some(c => {
+    const list = tasksByCharacter[c.id] || []
+    if (typeView === 'daily') return list.some(t => t.type === 'daily')
+    if (typeView === 'weekly') return list.some(t => t.type === 'weekly')
+    return list.some(t => t.type === 'one-time')
+  })
 </script>
 
 <div class="max-w-7xl mx-auto">
@@ -529,7 +537,7 @@
               <!-- By Type view: list chosen type for each character with tasks -->
               {#if byTypeGroups.length === 0}
                 <div class="text-center text-gray-500 dark:text-gray-400 py-4">
-                  {#if !showCompleted}
+                  {#if !showCompleted && anyTasksOfSelectedType}
                     <p class="text-sm text-green-700 dark:text-green-400">✅ All {typeView} tasks completed. Nice work!</p>
                   {:else}
                     <p class="text-sm">No {typeView} tasks available.</p>
