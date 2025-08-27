@@ -24,7 +24,7 @@
   // Cache of tasks for each character (for byType view)
   let tasksByCharacter = {}
   
-  // Persistence for tasks card preferences
+  // Persistence for dashboard preferences (tasks + events toggles)
   const PERSIST_KEY = 'nw_dash_tasks_prefs'
   function loadPrefs() {
     try {
@@ -36,12 +36,13 @@
         if (p.typeView === 'daily' || p.typeView === 'weekly' || p.typeView === 'one-time') typeView = p.typeView
         if (typeof p.showCompleted === 'boolean') showCompleted = p.showCompleted
         if (typeof p.selectedCharacterId === 'number') selectedCharacterId = p.selectedCharacterId
+        if (typeof p.showAbsent === 'boolean') showAbsent = p.showAbsent
       }
     } catch {}
   }
   function savePrefs() {
     try {
-      const data = { viewMode, typeView, showCompleted, selectedCharacterId }
+      const data = { viewMode, typeView, showCompleted, selectedCharacterId, showAbsent }
       localStorage.setItem(PERSIST_KEY, JSON.stringify(data))
     } catch {}
   }
@@ -340,7 +341,7 @@
               class={`text-[10px] rounded-md border px-2 py-1 transition-colors ${showAbsent
                 ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer'
                 : 'opacity-80 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'}`}
-              on:click={() => { showAbsent = !showAbsent }}
+              on:click={() => { showAbsent = !showAbsent; savePrefs() }}
               aria-pressed={showAbsent}
               title={showAbsent ? 'Hide Absent events' : 'Show Absent events'}
             >
