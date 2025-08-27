@@ -406,28 +406,27 @@ class ServerService {
                 return
             }
             
-            // Default New World servers with regions and timezones (current active servers)
+            // Default New World servers with regions and timezones (from current NWDB list)
             const defaultServers = [
+                // US West
+                { name: 'El Dorado', region: 'US West', timezone: 'America/Los_Angeles' },
+
                 // US East
                 { name: 'Hudsonland', region: 'US East', timezone: 'America/New_York' },
                 { name: 'Pangea', region: 'US East', timezone: 'America/New_York' },
                 { name: 'Valhalla', region: 'US East', timezone: 'America/New_York' },
-                
-                // US West
-                { name: 'Aquarius', region: 'US West', timezone: 'America/Los_Angeles' },
-                { name: 'El Dorado', region: 'US West', timezone: 'America/Los_Angeles' },
-                
+                { name: 'Tumtum', region: 'US East', timezone: 'America/New_York' },
+
+                // SA East
+                { name: 'Devaloka', region: 'SA East', timezone: 'America/Sao_Paulo' },
+
                 // EU Central
                 { name: 'Aries', region: 'EU Central', timezone: 'Europe/Berlin' },
                 { name: 'Nysa', region: 'EU Central', timezone: 'Europe/Berlin' },
-                
+                { name: 'Bifrost', region: 'EU Central', timezone: 'Europe/Berlin' },
+
                 // AP Southeast
-                { name: 'Cerberus', region: 'AP Southeast', timezone: 'Australia/Sydney' },
-                { name: 'Delos', region: 'AP Southeast', timezone: 'Australia/Sydney' },
-                
-                // SA East
-                { name: 'Alkaid', region: 'SA East', timezone: 'America/Sao_Paulo' },
-                { name: 'Devaloka', region: 'SA East', timezone: 'America/Sao_Paulo' }
+                { name: 'Delos', region: 'AP Southeast', timezone: 'Australia/Sydney' }
             ]
             
             // Insert default servers

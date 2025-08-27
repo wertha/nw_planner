@@ -42,6 +42,7 @@
       const cutoff = new Date(now.getTime() + 20 * 60 * 60 * 1000)
       upcomingEvents = events
         .filter(e => {
+          if ((e.participation_status || 'Signed Up') === 'Absent') return false
           const t = new Date(e.event_time)
           return t >= now && t <= cutoff
         })
