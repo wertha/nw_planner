@@ -233,7 +233,7 @@
                 <select 
                   value={event.participation_status || 'Signed Up'}
                   on:change={(e) => updateRsvpStatus(event.id, e.target.value)}
-                  class="text-xs px-2 py-1 rounded border {
+                  class="text-xs pr-6 pl-2 py-1 rounded border appearance-none bg-[length:12px_12px] bg-no-repeat bg-right-2 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 20 20\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'6 8 10 12 14 8\'/></svg>')] {
                     event.participation_status === 'Confirmed' ? 'bg-green-50 border-green-200 text-green-800' :
                     event.participation_status === 'Signed Up' ? 'bg-blue-50 border-blue-200 text-blue-800' :
                     event.participation_status === 'Tentative' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
