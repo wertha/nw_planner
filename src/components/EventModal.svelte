@@ -121,9 +121,10 @@
 
   // Load templates when shown
   import api from '../services/api.js'
-  $: if (show) {
-    (async () => { try { templates = await api.getEventTemplates() } catch (_) { templates = [] } })()
+  async function reloadTemplates(){
+    try { templates = await api.getEventTemplates() } catch (_) { templates = [] }
   }
+  $: if (show) { (async ()=>{ await reloadTemplates() })() }
 
   // Auto-apply initial template if provided on first show
   let appliedInitial = false
@@ -425,7 +426,7 @@
             {#if templates.length > 0}
             <div class="flex items-center gap-2">
               <label for="apply_template" class="text-xs text-gray-600 dark:text-gray-400">Apply Template</label>
-              <select id="apply_template" bind:value={selectedTemplateId} on:change={(e)=> applyTemplate(e.target.value)} class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+              <select id="apply_template" bind:value={selectedTemplateId} on:focus={reloadTemplates} on:click={reloadTemplates} on:change={(e)=> applyTemplate(e.target.value)} class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200">
                 <option value="">Select</option>
                 {#each templates as t}
                   <option value={t.id}>{t.name}</option>
