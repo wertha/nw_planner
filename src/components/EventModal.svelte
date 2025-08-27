@@ -170,6 +170,9 @@
         formData.event_time = computedLocal
       }
     }
+
+    // Ensure server fields reflect selected character if provided by template
+    syncServerFromCharacter()
   }
 
   function computeFromTimingStrategy(strategy, params) {
@@ -275,6 +278,9 @@
       ? zonedTimeToUtc(formData.event_time, effectiveTimezone).toISOString()
       : new Date(formData.event_time).toISOString()
 
+    // Ensure server fields are synced right before submit
+    syncServerFromCharacter()
+
     // Format event data for submission
     const eventData = {
       ...formData,
@@ -317,15 +323,19 @@
     }
   }
   
+  // Ensure server_name/timezone reflect the selected character
+  function syncServerFromCharacter() {
+    if (!formData?.character_id) return
+    const character = characters.find(c => c.id === parseInt(formData.character_id))
+    if (character) {
+      formData.server_name = character.server_name
+      formData.timezone = character.server_timezone || formData.timezone
+    }
+  }
+
   // Auto-populate server name when character changes
   function handleCharacterChange() {
-    if (formData.character_id) {
-      const character = characters.find(c => c.id === parseInt(formData.character_id))
-      if (character) {
-        formData.server_name = character.server_name
-        formData.timezone = character.server_timezone
-      }
-    }
+    syncServerFromCharacter()
   }
   
   // Get event type specific defaults
