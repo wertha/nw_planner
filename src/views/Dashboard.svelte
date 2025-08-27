@@ -466,7 +466,7 @@
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Daily</div>
                     <div class="space-y-2">
                       <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
-                        {#each dailyTasks as task}
+                        {#each dailyTasks as task (task.id)}
                           <div class="flex items-center justify-between px-2 py-1.5">
                             <div class="flex items-center gap-2">
                               <input 
@@ -490,7 +490,7 @@
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Weekly</div>
                     <div class="space-y-2">
                       <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
-                        {#each weeklyTasks as task}
+                        {#each weeklyTasks as task (task.id)}
                           <div class="flex items-center justify-between px-2 py-1.5">
                             <div class="flex items-center gap-2">
                               <input 
@@ -514,7 +514,7 @@
                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">One-time</div>
                     <div class="space-y-2">
                       <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
-                        {#each oneTimeTasks as task}
+                        {#each oneTimeTasks as task (task.id)}
                           <div class="flex items-center justify-between px-2 py-1.5">
                             <div class="flex items-center gap-2">
                               <input 
@@ -545,11 +545,11 @@
                 </div>
               {:else}
                 <div class="space-y-3">
-                  {#each byTypeGroups as group}
+                  {#each byTypeGroups as group (group.character.id)}
                     <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-2">
                       <div class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">{group.character.name}</div>
                       <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-md overflow-hidden">
-                        {#each group.tasks as task}
+                        {#each group.tasks as task (`${task.id}-${task.__characterId}`)}
                           <div class="flex items-center justify-between px-2 py-1.5">
                             <div class="flex items-center gap-2">
                               <input 
