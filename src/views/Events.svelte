@@ -47,6 +47,11 @@
       loading = false
     }
   }
+
+  // Just-in-time refresh for template list used by the action bar selector
+  async function reloadTemplatesList() {
+    try { templates = await api.getEventTemplates() } catch { /* noop */ }
+  }
   
   async function updateRsvpStatus(eventId, newStatus) {
     try {
@@ -168,7 +173,7 @@
       <div class="flex space-x-2">
         <button class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={characters.length === 0} title={characters.length===0 ? 'Create a character first' : ''} on:click={openCreate}>Add New Event</button>
         <div class="relative">
-          <select class="btn-secondary text-sm px-3 py-2" on:change={(e)=>{ const tplId = e.target.value; if (!tplId) return; pendingTemplateId = tplId; openCreate(); e.target.value=''; }}>
+          <select class="btn-secondary text-sm px-3 py-2" on:focus={reloadTemplatesList} on:click={reloadTemplatesList} on:change={(e)=>{ const tplId = e.target.value; if (!tplId) return; pendingTemplateId = tplId; openCreate(); e.target.value=''; }}>
             <option value="">New from Template…</option>
             {#each templates as t}
               <option value={t.id}>{t.name}</option>
