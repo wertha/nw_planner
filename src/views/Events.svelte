@@ -51,7 +51,8 @@
   async function updateRsvpStatus(eventId, newStatus) {
     try {
       await api.updateEventRsvp(eventId, newStatus)
-      await loadData() // Reload to get updated data
+      // Update local state only
+      events = (events || []).map(e => e.id === eventId ? { ...e, participation_status: newStatus } : e)
     } catch (error) {
       console.error('Error updating RSVP:', error)
     }
@@ -63,7 +64,8 @@
     if (!ok) return
     try {
       await api.deleteEvent(eventId)
-      await loadData()
+      // Remove locally without reloading everything
+      events = (events || []).filter(e => e.id !== eventId)
     } catch (error) {
       console.error('Error deleting event:', error)
     }
@@ -83,14 +85,19 @@
     const data = e.detail
     try {
       if (editingEvent) {
-        await api.updateEvent(editingEvent.id, data)
+        const updated = await api.updateEvent(editingEvent.id, data)
+        if (updated && updated.id) {
+          events = (events || []).map(ev => ev.id === updated.id ? { ...ev, ...updated } : ev)
+        }
       } else {
-        await api.createEvent(data)
+        const created = await api.createEvent(data)
+        if (created && created.id) {
+          events = [...(events || []), created]
+        }
       }
       showModal = false
       editingEvent = null
       pendingTemplateId = null
-      await loadData()
     } catch (err) {
       console.error('Error saving event:', err)
     }
@@ -313,5 +320,10 @@
     </div>
   {/if}
   <EventModal show={showModal} editingEvent={editingEvent} characters={characters} isCreating={!editingEvent} initialTemplateId={pendingTemplateId} on:save={handleSave} on:cancel={() => { showModal = false; editingEvent = null; pendingTemplateId = null }} on:delete={async (e) => { try { await api.deleteEvent(e.detail); showModal = false; editingEvent = null; pendingTemplateId = null; await loadData() } catch (err) { console.error('Delete failed', err) } }} />
-  <TemplateManager isOpen={showTemplateManager} on:close={()=>{ showTemplateManager=false; loadData() }} on:apply={(e)=>{ showTemplateManager=false; pendingTemplateId = e.detail.id; editingEvent=null; showModal=true }} />
+  <TemplateManager
+    isOpen={showTemplateManager}
+    on:close={()=>{ showTemplateManager=false }}
+    on:changed={async ()=>{ try { templates = await api.getEventTemplates() } catch { /* noop */ } }}
+    on:apply={(e)=>{ showTemplateManager=false; pendingTemplateId = e.detail.id; editingEvent=null; showModal=true }}
+  />
 </div> 
