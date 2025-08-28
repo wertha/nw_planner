@@ -89,6 +89,67 @@ Game Event Entity:
 - Notification Settings
 ```
 
+### 2.3.X Participation Status — Customization and Unified Integration (UPDATED)
+
+Objectives
+- Allow users to define custom participation statuses (name + color + semantics) from Settings.
+- Integrate the customizable list into the existing Events system without breaking existing data.
+- Ensure a single, consistent CRUD/save/display pipeline across Events page, Dashboard, Calendar, and EventModal.
+- Preserve stale-safety invariants introduced by the RSVP cleanup: await any in-flight RSVP save and open modals with a fresh event snapshot via `getEventById`.
+
+Data Model & Migrations (UPDATED)
+- Keep `events.participation_status` as TEXT (free-form) for resilience.
+- New table `participation_statuses`:
+  - id INTEGER PK AUTOINCREMENT
+  - name TEXT UNIQUE NOT NULL (canonical label stored in events)
+  - slug TEXT UNIQUE NOT NULL (stable key derived from name)
+  - color_bg TEXT NOT NULL (chip/select field background class)
+  - color_text TEXT NOT NULL (chip/select field text class)
+  - sort_order INTEGER NOT NULL DEFAULT 0
+  - is_absent BOOLEAN NOT NULL DEFAULT 0 (for “Hide Absent” filters)
+- Migration tasks:
+  - Create `participation_statuses` with indexes (slug, sort_order).
+  - Seed defaults (idempotent):
+    - No Status (slug: no-status) — protected (cannot edit/delete); true default; not absent
+    - Signed Up, Confirmed, Tentative — not absent
+    - Absent — absent
+    - Cancelled — absent
+  - Drop legacy CHECK constraints in `events` and `event_templates` that restrict `participation_status` to a fixed set; rebuild tables preserving data.
+  - Back-compat: existing events keep stored names; unknown names render neutrally until user updates.
+
+Single Source of Truth & Access Layer (UPDATED)
+- Main-process status service: CRUD, delete supports remap to replacement name across events.
+- IPC: `status:getAll|create|update|delete`.
+- Renderer: `api.getParticipationStatuses()` + statusRegistry (in-memory store) with invalidate() after Settings changes.
+- Event row reconciliation pathway now standardized: after any RSVP change, call `api.getEventById(eventId)` and patch the list; when opening edit modals, await any pending save for that event and then fetch `getEventById` to initialize the form.
+ - Service-level protections: attempts to edit/delete `no-status` are rejected. Delete supports optional remap; simple delete is allowed and won’t error.
+
+Unified UI & Save Flow (UPDATED)
+- Shared `ParticipationStatusSelect` (thin): props { value, statuses, disabled, onChange(value) }.
+  - Closed field recolors via `color_bg/color_text`; dropdown options are neutral.
+  - Awaits `onChange` Promise; disables while saving.
+- RSVP update helper (renderer): `updateEventStatus(eventId, nextName)` used by all views.
+  - 1) Optimistically update local event
+  - 2) `api.updateEventRsvp`
+  - 3) `api.getEventById` patch to prevent stale modal opens
+  - 4) When opening `EventModal`, if a save is in-flight for that event, await it before fetching `getEventById`.
+
+Integration Points (UPDATED)
+- EventModal: native select for visual consistency with modal; opens with fresh `getEventById` snapshot.
+- Events page & Dashboard: shared colored selector component for closed state (colored by status); dropdown list remains neutral; “Hide Absent” consults `is_absent`.
+- Calendar: reads status name for display; edits via EventModal.
+
+Settings UI
+- Manage statuses with clickable color presets and live preview, Absent flag, and reorder (planned). Deleting optionally remaps; backend protects `No Status`. Invalidate statusRegistry after changes.
+
+Testing Plan (UPDATED)
+- DB migrations; defaults seeded; no CHECK violations block writes.
+- Settings CRUD and delete remap.
+- RSVP change consistency across Events/Dashboard; persists immediately without navigation; opening the modal right after changing the dropdown reflects the updated status due to `getEventById` reconciliation and in-flight save awaiting.
+- Hide Absent works with custom statuses.
+ - Protected defaults: cannot edit/delete `No Status`; `Cancelled` treated as absent.
+ - Legacy compatibility: events created before custom statuses display without error; unknown labels render neutrally, and selecting a new status updates them to a known value.
+
 #### 2.3.2 Guild/External Events
 ```
 External Event Entity:

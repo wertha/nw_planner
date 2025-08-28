@@ -3,11 +3,13 @@
   import { currentView } from '../stores/ui'
   import api from '../services/api.js'
   import EventModal from '../components/EventModal.svelte'
+  import StatusSelect from '../components/StatusSelect.svelte'
   
   let loading = true
   let characters = []
   let displayedTasks = []
   let upcomingEvents = []
+  let statuses = []
   let showAbsent = true
   let resetTimers = {}
   let activeTimers = []
@@ -92,6 +94,9 @@
         selectedCharacterServers = Array.from(byKey.values())
       }
       
+      // Load statuses
+      try { statuses = await api.getParticipationStatuses() } catch { statuses = [] }
+
       // Load upcoming events (limit to next 7 days)
       try {
         const events = await api.getUpcomingEvents(20)
@@ -124,17 +129,30 @@
     }
   }
 
+  let rsvpPending = {}
   async function updateRsvpStatus(eventId, newStatus) {
     try {
-      await api.updateEventRsvp(eventId, newStatus)
-      await loadData()
+      const p = api.updateEventRsvp(eventId, newStatus)
+      rsvpPending[eventId] = p; rsvpPending = { ...rsvpPending }
+      await p
+      // Patch the single event to avoid full reload/race
+      try {
+        const fresh = await api.getEventById(eventId)
+        if (fresh) {
+          upcomingEvents = (upcomingEvents || []).map(e => e.id === eventId ? {
+            ...e,
+            participation_status: fresh.participation_status
+          } : e)
+        }
+      } catch {}
     } catch (error) {
       console.error('Error updating RSVP:', error)
-    }
+    } finally { delete rsvpPending[eventId]; rsvpPending = { ...rsvpPending } }
   }
 
-  function openEditEvent(ev) {
-    editingEvent = ev
+  async function openEditEvent(ev) {
+    try { if (rsvpPending[ev.id]) await rsvpPending[ev.id] } catch {}
+    try { editingEvent = await api.getEventById(ev.id) || ev } catch { editingEvent = ev }
     showEventModal = true
   }
 
@@ -175,7 +193,13 @@
   }
 
   // Derived: visible events honoring showAbsent flag
-  $: visibleEvents = (upcomingEvents || []).filter(e => showAbsent ? true : (e.participation_status !== 'Absent'))
+  function isStatusAbsent(name) {
+    if (!name) return false
+    const s = (statuses || []).find(st => st.name === name)
+    if (s) return !!s.is_absent
+    return name === 'Absent'
+  }
+  $: visibleEvents = (upcomingEvents || []).filter(e => showAbsent ? true : !isStatusAbsent(e.participation_status))
 
   function getPriorityClass(priority) {
     const p = (priority || '').toLowerCase()
@@ -367,18 +391,13 @@
                       {/if}
                     </div>
                     <div class="ml-3 flex items-center gap-2">
-                      <span class={`w-2 h-2 rounded-full ${rsvpDotClass(event.participation_status || 'Signed Up')}`} aria-hidden="true"></span>
-                      <select 
-                        on:click|stopPropagation
+                      <StatusSelect
+                        stopClickPropagation={true}
                         value={event.participation_status || 'Signed Up'}
-                        on:change={(e) => updateRsvpStatus(event.id, e.target.value)}
-                        class="text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
-                      >
-                        <option value="Signed Up">Signed Up</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Tentative">Tentative</option>
-                        <option value="Absent">Absent</option>
-                      </select>
+                        {statuses}
+                        selectClass="text-[10px]"
+                        on:change={(e)=> updateRsvpStatus(event.id, e.detail.value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -645,5 +664,5 @@
       </div>
     </div>
   {/if}
-  <EventModal show={showEventModal} editingEvent={editingEvent} characters={characters} isCreating={false} on:save={handleEventSave} on:cancel={() => { showEventModal = false; editingEvent = null }} on:delete={handleEventDelete} />
+  <EventModal show={showEventModal} editingEvent={editingEvent} characters={characters} statuses={statuses} isCreating={false} on:save={handleEventSave} on:cancel={() => { showEventModal = false; editingEvent = null }} on:delete={handleEventDelete} />
 </div> 
