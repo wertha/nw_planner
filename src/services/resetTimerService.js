@@ -231,11 +231,25 @@ class ResetTimerService {
         }
         const dailyPeriod = `${dailyY}-${String(dailyM).padStart(2,'0')}-${String(dailyD).padStart(2,'0')}`
 
-        // Weekly period (yyyy-Www) based on server-local week number
-        const serverTime = this.getServerTime(serverName)
-        const year = serverTime.getFullYear()
-        const weekNumber = this.getWeekNumber(serverTime)
-        const weeklyPeriod = `${year}-W${weekNumber.toString().padStart(2, '0')}`
+        // Weekly period anchored to Tuesday 05:00 server-local
+        const weekdayStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(now)
+        const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+        const dayNum = map[weekdayStr]
+        const dateOnlyFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+        const dateParts = dateOnlyFmt.formatToParts(now)
+        const cy = parseInt(dateParts.find(p => p.type === 'year').value, 10)
+        const cm = parseInt(dateParts.find(p => p.type === 'month').value, 10)
+        const cd = parseInt(dateParts.find(p => p.type === 'day').value, 10)
+        const deltaToTuesday = (dayNum - 2 + 7) % 7
+        const tuesdayUTC = new Date(Date.UTC(cy, cm - 1, cd))
+        tuesdayUTC.setUTCDate(tuesdayUTC.getUTCDate() - deltaToTuesday)
+        const beforeFiveOnTuesday = (dayNum === 2 && H < 5)
+        if (beforeFiveOnTuesday) {
+            tuesdayUTC.setUTCDate(tuesdayUTC.getUTCDate() - 7)
+        }
+        const weeklyYear = tuesdayUTC.getUTCFullYear()
+        const weeklyWeek = this.getWeekNumber(tuesdayUTC)
+        const weeklyPeriod = `${weeklyYear}-W${weeklyWeek.toString().padStart(2, '0')}`
 
         return { daily: dailyPeriod, weekly: weeklyPeriod }
     }

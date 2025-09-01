@@ -396,12 +396,31 @@ class TaskService {
         const d = parseInt(pick('day'), 10)
         const H = parseInt(pick('hour'), 10)
         if (taskType === 'weekly') {
-            // Retain existing weekly logic for now (less impacted), but base on server wall clock
-            const serverNow = this.getTimeInTimezone(serverTimezone)
-            const weekStart = this.getTuesdayFiveAMOfWeek(serverNow)
-            const effective = serverNow >= weekStart ? serverNow : this.addDays(weekStart, -7)
-            const year = effective.getFullYear()
-            const weekNumber = this.getWeekNumber(effective)
+            // Determine weekly period anchored at Tuesday 05:00 in server timezone
+            // Get server-local weekday and YMD parts
+            const weekdayStr = new Intl.DateTimeFormat('en-US', { timeZone: serverTimezone, weekday: 'short' }).format(now)
+            const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+            const dayNum = map[weekdayStr]
+
+            // Tuesday of the current server-local week (midnight base in UTC for stable math)
+            const dateOnlyFmt = new Intl.DateTimeFormat('en-CA', { timeZone: serverTimezone, year: 'numeric', month: '2-digit', day: '2-digit' })
+            const dateParts = dateOnlyFmt.formatToParts(now)
+            const cy = parseInt(dateParts.find(p => p.type === 'year').value, 10)
+            const cm = parseInt(dateParts.find(p => p.type === 'month').value, 10)
+            const cd = parseInt(dateParts.find(p => p.type === 'day').value, 10)
+
+            const deltaToTuesday = (dayNum - 2 + 7) % 7
+            const tuesdayUTC = new Date(Date.UTC(cy, cm - 1, cd))
+            tuesdayUTC.setUTCDate(tuesdayUTC.getUTCDate() - deltaToTuesday)
+
+            // If it's Tuesday but before 05:00 server-local, use previous week's Tuesday
+            const beforeFiveOnTuesday = (dayNum === 2 && H < 5)
+            if (beforeFiveOnTuesday) {
+                tuesdayUTC.setUTCDate(tuesdayUTC.getUTCDate() - 7)
+            }
+
+            const year = tuesdayUTC.getUTCFullYear()
+            const weekNumber = this.getWeekNumber(tuesdayUTC)
             return `${year}-W${weekNumber.toString().padStart(2, '0')}`
         }
         // Daily token: if before 05:00 server-local, use previous local day

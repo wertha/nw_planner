@@ -152,9 +152,27 @@ class TimeZoneService {
             // Format: YYYY-MM-DD
             return format(serverTime, 'yyyy-MM-dd')
         } else if (resetType === 'weekly') {
-            // Format: YYYY-Www (ISO week format)
-            const year = serverTime.getFullYear()
-            const weekNumber = this.getWeekNumber(serverTime)
+            // Weekly period anchored to Tuesday 05:00 in server timezone
+            const tz = this.serverTimeZones[serverName] || 'UTC'
+            const weekdayStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(new Date())
+            const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+            const dayNum = map[weekdayStr]
+            const dateOnlyFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+            const dateParts = dateOnlyFmt.formatToParts(new Date())
+            const y = parseInt(dateParts.find(p => p.type === 'year').value, 10)
+            const m = parseInt(dateParts.find(p => p.type === 'month').value, 10)
+            const d = parseInt(dateParts.find(p => p.type === 'day').value, 10)
+            const timeParts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date())
+            const H = parseInt(timeParts.find(p => p.type === 'hour').value, 10)
+            const deltaToTuesday = (dayNum - 2 + 7) % 7
+            const tuesdayUTC = new Date(Date.UTC(y, m - 1, d))
+            tuesdayUTC.setUTCDate(tuesdayUTC.getUTCDate() - deltaToTuesday)
+            const beforeFiveOnTuesday = (dayNum === 2 && H < 5)
+            if (beforeFiveOnTuesday) {
+                tuesdayUTC.setUTCDate(tuesdayUTC.getUTCDate() - 7)
+            }
+            const year = tuesdayUTC.getUTCFullYear()
+            const weekNumber = this.getWeekNumber(tuesdayUTC)
             return `${year}-W${weekNumber.toString().padStart(2, '0')}`
         }
         
