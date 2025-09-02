@@ -93,6 +93,11 @@ class TaskService {
                 WHERE character_id = ? AND reset_period = ?
                   AND task_id IN (SELECT id FROM tasks WHERE type = ?)
             `),
+            deleteCompletionsForTypeSimple: await this.db.prepare(`
+                DELETE FROM task_completions
+                WHERE character_id = ?
+                  AND task_id IN (SELECT id FROM tasks WHERE type = ?)
+            `),
             
             // Statistics
             getTaskStats: await this.db.prepare(`
@@ -367,6 +372,14 @@ class TaskService {
         })
         tx(rows)
         return true
+    }
+
+    // Simple clear: remove all completions for a character by task type (daily/weekly)
+    async clearCompletionsForCharacterByType(characterId, taskType) {
+        await this.ensureInitialized()
+        if (taskType !== 'daily' && taskType !== 'weekly') return false
+        const res = this.statements.deleteCompletionsForTypeSimple.run(characterId, taskType)
+        return res.changes >= 0
     }
 
     // Helper methods
