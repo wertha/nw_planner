@@ -3,7 +3,9 @@ import { format, addDays, setHours, setMinutes, setSeconds, setMilliseconds, isA
 class TimeZoneService {
     static serverTimeZones = {
         'Camelot': 'America/Los_Angeles',
+        'El Dorado': 'America/Los_Angeles',
         'Valhalla': 'America/New_York',
+        'Hudsonland': 'America/New_York',
         'Hellheim': 'Europe/London',
         'Asgard': 'Europe/Berlin',
         'Midgard': 'America/Chicago',

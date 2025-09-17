@@ -612,10 +612,11 @@ class ApiService {
         // Basic fallback servers for web mode
         return [
             { id: 1, name: 'Valhalla', region: 'US East', timezone: 'America/New_York', active_status: true },
-            { id: 2, name: 'Camelot', region: 'US West', timezone: 'America/Los_Angeles', active_status: true },
+            { id: 2, name: 'El Dorado', region: 'US West', timezone: 'America/Los_Angeles', active_status: true },
             { id: 3, name: 'Hellheim', region: 'EU Central', timezone: 'Europe/Berlin', active_status: true },
             { id: 4, name: 'Asgard', region: 'EU Central', timezone: 'Europe/Berlin', active_status: true },
-            { id: 5, name: 'Utopia', region: 'AP Southeast', timezone: 'Australia/Sydney', active_status: true }
+            { id: 5, name: 'Utopia', region: 'AP Southeast', timezone: 'Australia/Sydney', active_status: true },
+            { id: 6, name: 'Hudsonland', region: 'US East', timezone: 'America/New_York', active_status: true }
         ]
     }
 
